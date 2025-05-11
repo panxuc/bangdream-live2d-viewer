@@ -25,7 +25,6 @@ class Asset2JsonConverter {
       return items.map(item => {
         if (typeof item === 'object') {
           const processed = this.process_bundle_file(item, currentPath);
-          // 如果是textures键，且文件名不以.png结尾，添加.png后缀
           if (key === 'textures' && !processed.endsWith('.png')) {
             return processed + '.png';
           }
@@ -113,7 +112,7 @@ export async function GET(request, context) {
 
   const filePath = path ? path.join('/') : '';
   const currentPath = model.replace('_rip', '');
-  const fullUrl = `https://raw.githubusercontent.com/panxuc/bangdream-live2d/refs/heads/main/chara/${model}_rip/${filePath}`;
+  const fullUrl = `https://raw.githubusercontent.com/panxuc/bangdream-live2d/live2d/chara/${model}_rip/${filePath}`;
 
   try {
     const response = await fetch(fullUrl);
@@ -125,14 +124,12 @@ export async function GET(request, context) {
       );
     }
 
-    // 如果是 buildData.asset 文件，需要特殊处理
     if (filePath === 'buildData.asset') {
       const data = await response.json();
       const processedData = Asset2JsonConverter.process_file(data, currentPath);
       return NextResponse.json(processedData);
     }
 
-    // 对于其他文件，直接返回原始内容
     const contentType = response.headers.get('content-type');
     const buffer = await response.arrayBuffer();
     
@@ -147,4 +144,4 @@ export async function GET(request, context) {
       { status: 500 }
     );
   }
-} 
+}

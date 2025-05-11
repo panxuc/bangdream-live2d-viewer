@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
 import * as PIXI from "pixi.js";
 
 const loadLive2DCore = async () => {
@@ -35,13 +35,17 @@ const loadLive2DCore = async () => {
   }
 };
 
-export function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, selectedMotion }) {
+const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, selectedMotion }, ref) {
   const canvasRef = useRef(null);
   const appRef = useRef(null);
   const modelRef = useRef(null);
   const coreLoadedRef = useRef(false);
   const live2dDisplayRef = useRef(null);
   const modelLoadingRef = useRef(false);
+
+  useImperativeHandle(ref, () => ({
+    getApp: () => appRef.current
+  }));
 
   useEffect(() => {
     if (typeof window === 'undefined' || !canvasRef.current) return;
@@ -81,7 +85,6 @@ export function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, s
     if (
       typeof window === 'undefined' ||
       !selectedModel ||
-      selectedModel === "none" ||
       !appRef.current ||
       !coreLoadedRef.current ||
       !live2dDisplayRef.current ||
@@ -113,7 +116,6 @@ export function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, s
         modelRef.current = model;
 
         if (onModelLoad) {
-          console.log("Passing model data to parent:", modelData);
           onModelLoad(modelData);
         }
 
@@ -129,7 +131,7 @@ export function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, s
   }, [selectedModel]);
 
   useEffect(() => {
-    if (!modelRef.current || !selectedExpression || selectedExpression === "none") return;
+    if (!modelRef.current || !selectedExpression) return;
 
     try {
       modelRef.current.expression(selectedExpression);
@@ -139,8 +141,7 @@ export function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, s
   }, [selectedExpression]);
 
   useEffect(() => {
-    if (!modelRef.current || !selectedMotion || selectedMotion === "none") return;
-    // selectedMotion 格式为 group|index
+    if (!modelRef.current || !selectedMotion) return;
     const [group, indexStr] = selectedMotion.split("|");
     const index = parseInt(indexStr, 10);
     try {
@@ -155,4 +156,6 @@ export function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, s
       <canvas ref={canvasRef} width="400" height="400" className="border rounded" />
     </div>
   );
-}
+});
+
+export { Live2DCanvas };

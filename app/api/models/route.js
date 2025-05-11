@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 
-// 缓存_info.json数据
 let infoCache = null;
 let lastFetchTime = 0;
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24小时的缓存时间
+const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -14,15 +13,13 @@ export async function GET(request) {
   }
 
   try {
-    // 检查缓存是否有效
     const now = Date.now();
     if (!infoCache || now - lastFetchTime > CACHE_DURATION) {
-      const response = await fetch('https://raw.githubusercontent.com/panxuc/bangdream-live2d/refs/heads/main/_info.json');
+      const response = await fetch('https://raw.githubusercontent.com/panxuc/bangdream-live2d/live2d/_info.json');
       infoCache = await response.json();
       lastFetchTime = now;
     }
     
-    // 过滤出以指定角色ID开头的键
     const characterModels = Object.entries(infoCache)
       .filter(([key]) => key.startsWith(characterId + '_'))
       .reduce((acc, [key, value]) => {
