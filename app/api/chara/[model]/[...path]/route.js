@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-class Asset2JsonConverter {
+export class Asset2JsonConverter {
   static process_bundle_file(bundle, currentPath) {
     if (!bundle) return null;
     
