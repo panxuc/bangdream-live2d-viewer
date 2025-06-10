@@ -21,7 +21,7 @@ export async function GET(request) {
     }
     
     const characterModels = Object.entries(infoCache)
-      .filter(([key]) => key.startsWith(characterId + '_'))
+      .filter(([key]) => key.startsWith(characterId + '_') || key.startsWith('bili_' + characterId + '_'))
       .reduce((acc, [key, value]) => {
         acc[key] = value;
         return acc;

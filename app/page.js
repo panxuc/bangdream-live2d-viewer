@@ -15,6 +15,7 @@ export default function Home() {
   const [selectedMotion, setSelectedMotion] = useState(null);
   const [selectedExpression, setSelectedExpression] = useState(null);
   const [modelData, setModelData] = useState(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const canvasRef = useRef();
 
   useEffect(() => {
@@ -22,6 +23,14 @@ export default function Home() {
       window.PIXI = PIXI;
     }
   }, []);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   const handleCharacterSelect = (value) => {
     setSelectedCharacter(value === "none" ? null : value);
@@ -52,7 +61,22 @@ export default function Home() {
 
   return (
     <div className="grid grid-rows-[auto_1fr] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <h1 className="text-3xl font-bold text-center mt-8">BanG Dream! Live2D 查看器</h1>
+      <div className="flex items-center justify-between w-full max-w-4xl">
+        <h1 className="text-3xl font-bold text-center">BanG Dream! Live2D 查看器</h1>
+        <label className="flex items-center cursor-pointer">
+          <span className="mr-2">深色模式</span>
+          <div className="relative">
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={isDarkMode}
+              onChange={(e) => setIsDarkMode(e.target.checked)}
+            />
+            <div className={`block w-14 h-8 rounded-full ${isDarkMode ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+            <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${isDarkMode ? 'transform translate-x-6' : ''}`}></div>
+          </div>
+        </label>
+      </div>
       <main className="flex w-full justify-center items-center gap-8 row-start-2">
         {/* Left sidebar: selectors */}
         <div className="flex flex-col space-y-4">
