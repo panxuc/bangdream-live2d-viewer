@@ -35,7 +35,7 @@ const loadLive2DCore = async () => {
   }
 };
 
-const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, selectedMotion }, ref) {
+const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, selectedMotion, isDarkMode }, ref) {
   const canvasRef = useRef(null);
   const appRef = useRef(null);
   const modelRef = useRef(null);
@@ -100,11 +100,11 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
           modelRef.current = null;
         }
 
-        const modelPath = `/api/chara/${selectedModel}/buildData.asset`;
+        const modelPath = isDarkMode ? `/api/charam/${selectedModel}/buildData.asset` : `/api/chara/${selectedModel}/buildData.asset`;
         const response = await fetch(modelPath);
         const modelData = await response.json();
 
-        modelData.url = `/api/chara/${selectedModel}/`;
+        modelData.url = isDarkMode ? `/api/charam/${selectedModel}/` : `/api/chara/${selectedModel}/`;
 
         const model = await live2dDisplayRef.current.Live2DModel.from(modelData, {
           autoInteract: false,

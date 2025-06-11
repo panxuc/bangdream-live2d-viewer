@@ -77,13 +77,16 @@ function processModelData(data) {
 
 export async function GET(request, context) {
   const { model } = context.params;
+  const { searchParams } = new URL(request.url);
+  const isModified = searchParams.get('isModified') === 'true';
 
   if (!model) {
     return NextResponse.json({ error: 'Model parameter is required' }, { status: 400 });
   }
 
   try {
-    const baseUrl = `https://raw.githubusercontent.com/panxuc/bangdream-live2d/live2d/chara/${model}_rip/`;
+    const branch = isModified ? 'live2d-modified' : 'live2d';
+    const baseUrl = `https://raw.githubusercontent.com/panxuc/bangdream-live2d/${branch}/chara/${model}_rip/`;
     const response = await fetch(baseUrl + 'buildData.asset');
 
     if (!response.ok) {

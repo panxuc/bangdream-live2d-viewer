@@ -81,7 +81,7 @@ export default function Home() {
         {/* Left sidebar: selectors */}
         <div className="flex flex-col space-y-4">
           <CharacterSelect onSelect={handleCharacterSelect} />
-          <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} />
+          <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} isDarkMode={isDarkMode} />
           <MotionSelect modelData={modelData} onSelect={handleMotionSelect} />
           <ExpressionSelect modelData={modelData} onSelect={handleExpressionSelect} />
         </div>
@@ -93,6 +93,7 @@ export default function Home() {
           onModelLoad={handleModelLoad}
           selectedExpression={selectedExpression}
           selectedMotion={selectedMotion}
+          isDarkMode={isDarkMode}
         />
 
         {/* Right sidebar: output and save */}
