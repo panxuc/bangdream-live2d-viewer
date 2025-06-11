@@ -80,10 +80,10 @@ export default function Home() {
       <main className="flex w-full justify-center items-center gap-8 row-start-2">
         {/* Left sidebar: selectors */}
         <div className="flex flex-col space-y-4">
-          <CharacterSelect onSelect={handleCharacterSelect} />
-          <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} isDarkMode={isDarkMode} />
-          <MotionSelect modelData={modelData} onSelect={handleMotionSelect} />
-          <ExpressionSelect modelData={modelData} onSelect={handleExpressionSelect} />
+          <CharacterSelect onSelect={handleCharacterSelect} value={selectedCharacter} />
+          <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} isDarkMode={isDarkMode} value={selectedModel} />
+          <MotionSelect modelData={modelData} onSelect={handleMotionSelect} value={selectedMotion} />
+          <ExpressionSelect modelData={modelData} onSelect={handleExpressionSelect} value={selectedExpression} />
         </div>
 
         {/* Center: Live2D canvas */}

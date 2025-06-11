@@ -2,13 +2,13 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export function ExpressionSelect({ modelData, onSelect }) {
+export function ExpressionSelect({ modelData, onSelect, value }) {
   const expressions = modelData?.expressions || [];
 
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">表情</label>
-      <Select onValueChange={onSelect}>
+      <Select onValueChange={onSelect} value={value}>
         <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="请选择表情" />
         </SelectTrigger>

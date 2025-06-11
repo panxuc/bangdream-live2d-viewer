@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { characters } from "../characters";
 import { categories as categoryOrder } from "../categories";
 
-export function CharacterSelect({ onSelect }) {
+export function CharacterSelect({ onSelect, value }) {
   const [selectedCategories, setSelectedCategories] = useState(() => {
     const categories = [...new Set(characters.flatMap(char => char.category))];
     return Object.fromEntries(categories.map(cat => [cat, true]));
@@ -100,7 +100,7 @@ export function CharacterSelect({ onSelect }) {
           </PopoverContent>
         </Popover>
       </div>
-      <Select onValueChange={onSelect}>
+      <Select onValueChange={onSelect} value={value}>
         <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="请选择人物" />
         </SelectTrigger>

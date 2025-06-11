@@ -3,7 +3,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 
-export function ModelSelect({ characterId, onSelect, isDarkMode }) {
+export function ModelSelect({ characterId, onSelect, isDarkMode, value }) {
   const [modelList, setModelList] = useState([]);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export function ModelSelect({ characterId, onSelect, isDarkMode }) {
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium">模型</label>
-      <Select onValueChange={onSelect}>
+      <Select onValueChange={onSelect} value={value}>
         <SelectTrigger className="w-[200px]">
           <SelectValue placeholder="请选择模型" />
         </SelectTrigger>
