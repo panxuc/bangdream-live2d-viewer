@@ -96,14 +96,14 @@ export function SaveButton({ modelData, selectedModel, selectedMotion, selectedE
       >
         保存图片
       </Button>
-      <Button
+      {/* <Button
         variant="outline"
         className="w-full"
         onClick={handleDownloadModel}
         disabled={!selectedModel}
       >
         下载模型
-      </Button>
+      </Button> */}
     </div>
   );
 }

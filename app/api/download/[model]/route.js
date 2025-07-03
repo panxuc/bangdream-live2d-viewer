@@ -13,7 +13,7 @@ async function downloadFile(url) {
 function getFileUrl(filePath, baseUrl) {
   if (filePath.startsWith('../')) {
     const dirName = filePath.split('/')[1];
-    return `https://raw.githubusercontent.com/panxuc/bangdream-live2d/live2d/chara/${dirName}_rip/${filePath.replace(`../${dirName}/`, '')}`;
+    return `https://bangdreamr2.haneoka.org/live2d/chara/${dirName}_rip/${filePath.replace(`../${dirName}/`, '')}`;
   }
   return baseUrl + filePath;
 }
@@ -86,7 +86,7 @@ export async function GET(request, context) {
 
   try {
     const branch = isModified ? 'live2d-modified' : 'live2d';
-    const baseUrl = `https://raw.githubusercontent.com/panxuc/bangdream-live2d/${branch}/chara/${model}_rip/`;
+    const baseUrl = `https://bangdreamr2.haneoka.org/${branch}/chara/${model}_rip/`;
     const response = await fetch(baseUrl + 'buildData.asset');
 
     if (!response.ok) {

@@ -112,7 +112,7 @@ export async function GET(request, context) {
 
   const filePath = path ? path.join('/') : '';
   const currentPath = model.replace('_rip', '');
-  const fullUrl = `https://raw.githubusercontent.com/panxuc/bangdream-live2d/live2d-modified/chara/${model}_rip/${filePath}`;
+  const fullUrl = `https://bangdreamr2.haneoka.org/live2d-modified/chara/${model}_rip/${filePath}`;
 
   try {
     const response = await fetch(fullUrl);

@@ -19,7 +19,7 @@ export async function GET(request) {
     const cacheKey = `${branch}_${characterId}`;
     
     if (!infoCache || !infoCache[cacheKey] || now - lastFetchTime > CACHE_DURATION) {
-      const response = await fetch(`https://raw.githubusercontent.com/panxuc/bangdream-live2d/${branch}/_info.json`);
+      const response = await fetch(`https://bangdreamr2.haneoka.org/${branch}/_info.json`);
       const data = await response.json();
       
       if (!infoCache) {
