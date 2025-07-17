@@ -60,7 +60,7 @@ export default function Home() {
   };
 
   return (
-    <div className="grid grid-rows-[auto_1fr] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+    <div className="grid grid-rows-[auto_1fr_auto] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <div className="flex items-center justify-between w-full max-w-4xl">
         <h1 className="text-3xl font-bold text-center">BanG Dream! Live2D 查看器</h1>
         <label className="flex items-center cursor-pointer">
@@ -107,6 +107,11 @@ export default function Home() {
           />
         </div>
       </main>
+      <footer className="w-full max-w-4xl text-center text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 pt-4">
+        <p>NGA安科的推荐输出大小为200。</p>
+        <p>NGA <strong><a href="https://bbs.nga.cn/nuke.php?func=ucp&uid=66691870" target="_blank" rel="noopener noreferrer">@各務砂雪</a></strong></p>
+        <p>数据来源：Bestdori。每周三和每周日同步一次。</p>
+      </footer>
     </div>
   );
 }

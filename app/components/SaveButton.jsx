@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useState } from "react";
 
 export function SaveButton({ modelData, selectedModel, selectedMotion, selectedExpression, canvasRef }) {
+  const [imageSize, setImageSize] = useState('200');
   const handleSave = () => {
     if (!modelData) {
       console.log("No model data available");
@@ -38,9 +40,17 @@ export function SaveButton({ modelData, selectedModel, selectedMotion, selectedE
 
         ctx.drawImage(img, x, y, 400, 400, 0, 0, 400, 400);
 
+        const finalSize = parseInt(imageSize);
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = finalSize;
+        finalCanvas.height = finalSize;
+        const finalCtx = finalCanvas.getContext('2d');
+
+        finalCtx.drawImage(tempCanvas, 0, 0, 400, 400, 0, 0, finalSize, finalSize);
+
         const link = document.createElement('a');
         link.download = fileName;
-        link.href = tempCanvas.toDataURL('image/png');
+        link.href = finalCanvas.toDataURL('image/png');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -51,43 +61,45 @@ export function SaveButton({ modelData, selectedModel, selectedMotion, selectedE
     }
   };
 
-  const handleDownloadModel = async () => {
-    if (!selectedModel) {
-      console.log("No model selected");
-      return;
-    }
+  // const handleDownloadModel = async () => {
+  //   if (!selectedModel) {
+  //     console.log("No model selected");
+  //     return;
+  //   }
 
-    try {
-      const response = await fetch(`/api/download/${selectedModel}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  //   try {
+  //     const response = await fetch(`/api/download/${selectedModel}`);
+  //     if (!response.ok) {
+  //       throw new Error(`HTTP error! status: ${response.status}`);
+  //     }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${selectedModel}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error downloading model:", error);
-    }
-  };
+  //     const blob = await response.blob();
+  //     const url = window.URL.createObjectURL(blob);
+  //     const link = document.createElement('a');
+  //     link.href = url;
+  //     link.download = `${selectedModel}.zip`;
+  //     document.body.appendChild(link);
+  //     link.click();
+  //     document.body.removeChild(link);
+  //     window.URL.revokeObjectURL(url);
+  //   } catch (error) {
+  //     console.error("Error downloading model:", error);
+  //   }
+  // };
 
   return (
     <div className="flex flex-col space-y-4">
-      {/* <div className="space-y-2">
-        <label className="text-sm font-medium">输出图片大小</label>
-        <Input
-          id="image-size"
-          readOnly
-          className="w-24"
-          placeholder="400×400"
-        />
-      </div> */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">输出大小</label>
+        <select
+          value={imageSize}
+          onChange={(e) => setImageSize(e.target.value)}
+          className="w-24 px-2 py-1 border rounded"
+        >
+          <option value="200">200</option>
+          <option value="400">400</option>
+        </select>
+      </div>
       <Button
         variant="outline"
         className="w-full"
