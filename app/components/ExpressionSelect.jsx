@@ -1,16 +1,17 @@
 "use client";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { memo } from "react";
 
-export function ExpressionSelect({ modelData, onSelect, value }) {
+const ExpressionSelect = memo(function ExpressionSelect({ modelData, onSelect, value }) {
   const expressions = modelData?.expressions || [];
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">表情</label>
+    <div className="space-y-3">
+      <label className="text-sm font-medium text-foreground/90">😊 表情选择</label>
       <Select onValueChange={onSelect} value={value}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="请选择表情" />
+        <SelectTrigger className="w-full bg-background hover:bg-accent transition-colors">
+          <SelectValue placeholder="🎭 请选择表情" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">请选择表情</SelectItem>
@@ -23,4 +24,6 @@ export function ExpressionSelect({ modelData, onSelect, value }) {
       </Select>
     </div>
   );
-}
+});
+
+export { ExpressionSelect };

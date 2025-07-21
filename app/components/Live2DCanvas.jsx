@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useImperativeHandle, forwardRef } from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo, useState } from "react";
 import * as PIXI from "pixi.js";
 
-const loadLive2DCore = async () => {
-  if (typeof window === 'undefined') return;
+let coreLoadPromise = null;
+
+const loadLive2DCore = () => {
+  if (typeof window === 'undefined') return Promise.resolve();
+  
+  if (coreLoadPromise) return coreLoadPromise;
 
   const scripts = [
     '/live2d.min.js',
@@ -27,12 +31,17 @@ const loadLive2DCore = async () => {
     });
   };
 
-  try {
-    await Promise.all(scripts.map(loadScript));
-    console.log('Live2D core libraries loaded');
-  } catch (error) {
-    console.error('Error loading Live2D core libraries:', error);
-  }
+  coreLoadPromise = Promise.all(scripts.map(loadScript))
+    .then(() => {
+      console.log('Live2D core libraries loaded');
+    })
+    .catch(error => {
+      console.error('Error loading Live2D core libraries:', error);
+      coreLoadPromise = null;
+      throw error;
+    });
+
+  return coreLoadPromise;
 };
 
 const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, selectedMotion, isDarkMode }, ref) {
@@ -42,6 +51,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
   const coreLoadedRef = useRef(false);
   const live2dDisplayRef = useRef(null);
   const modelLoadingRef = useRef(false);
+  const [loadingProgress, setLoadingProgress] = useState('');
 
   useImperativeHandle(ref, () => ({
     getApp: () => appRef.current
@@ -61,15 +71,19 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
         live2dDisplayRef.current = { Live2DModel };
       }
 
-      const app = new PIXI.Application({
-        view: canvasRef.current,
-        width: 400,
-        height: 400,
-        backgroundAlpha: 0,
-        antialias: true,
-      });
+      if (!appRef.current) {
+        const app = new PIXI.Application({
+          view: canvasRef.current,
+          width: 400,
+          height: 400,
+          backgroundAlpha: 0,
+          antialias: true,
+          resolution: window.devicePixelRatio || 1,
+          autoDensity: true,
+        });
 
-      appRef.current = app;
+        appRef.current = app;
+      }
     };
 
     init();
@@ -81,79 +95,127 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
     };
   }, []);
 
-  useEffect(() => {
+  const modelPath = useMemo(() => {
+    if (!selectedModel) return null;
+    return isDarkMode ? `/api/charam/${selectedModel}/buildData.asset` : `/api/chara/${selectedModel}/buildData.asset`;
+  }, [selectedModel, isDarkMode]);
+
+  const modelUrl = useMemo(() => {
+    if (!selectedModel) return null;
+    return isDarkMode ? `/api/charam/${selectedModel}/` : `/api/chara/${selectedModel}/`;
+  }, [selectedModel, isDarkMode]);
+
+  const loadModel = useCallback(async () => {
     if (
       typeof window === 'undefined' ||
       !selectedModel ||
       !appRef.current ||
       !coreLoadedRef.current ||
       !live2dDisplayRef.current ||
-      modelLoadingRef.current
+      modelLoadingRef.current ||
+      !modelPath ||
+      !modelUrl
     ) return;
 
-    const loadModel = async () => {
-      try {
-        modelLoadingRef.current = true;
+    try {
+      modelLoadingRef.current = true;
+      setLoadingProgress('正在清理上一个模型...');
 
-        if (modelRef.current) {
-          appRef.current.stage.removeChild(modelRef.current);
-          modelRef.current = null;
-        }
-
-        const modelPath = isDarkMode ? `/api/charam/${selectedModel}/buildData.asset` : `/api/chara/${selectedModel}/buildData.asset`;
-        const response = await fetch(modelPath);
-        const modelData = await response.json();
-
-        modelData.url = isDarkMode ? `/api/charam/${selectedModel}/` : `/api/chara/${selectedModel}/`;
-
-        const model = await live2dDisplayRef.current.Live2DModel.from(modelData, {
-          autoInteract: false,
-        });
-        appRef.current.stage.addChild(model);
-        model.scale.set(0.25);
-        model.x = -50;
-        model.y = -25;
-        modelRef.current = model;
-
-        if (onModelLoad) {
-          onModelLoad(modelData);
-        }
-
-        console.log("Model loaded:", modelData);
-      } catch (error) {
-        console.error("Error loading model:", error);
-      } finally {
-        modelLoadingRef.current = false;
+      if (modelRef.current) {
+        appRef.current.stage.removeChild(modelRef.current);
+        modelRef.current = null;
       }
-    };
 
-    loadModel();
-  }, [selectedModel]);
+      setLoadingProgress('正在获取模型数据...');
+      const response = await fetch(modelPath);
+      const modelData = await response.json();
+
+      modelData.url = modelUrl;
+
+      setLoadingProgress('正在加载Live2D模型...');
+      const model = await live2dDisplayRef.current.Live2DModel.from(modelData, {
+        autoInteract: false,
+      });
+      
+      setLoadingProgress('正在配置模型显示...');
+      appRef.current.stage.addChild(model);
+      model.scale.set(0.25);
+      model.x = -50;
+      model.y = -25;
+      modelRef.current = model;
+
+      if (onModelLoad) {
+        onModelLoad(modelData);
+      }
+
+      setLoadingProgress('');
+      console.log("Model loaded:", modelData);
+    } catch (error) {
+      console.error("Error loading model:", error);
+      setLoadingProgress('加载失败，请重试');
+      setTimeout(() => setLoadingProgress(''), 3000);
+    } finally {
+      modelLoadingRef.current = false;
+    }
+  }, [selectedModel, modelPath, modelUrl, onModelLoad]);
 
   useEffect(() => {
-    if (!modelRef.current || !selectedExpression) return;
+    loadModel();
+  }, [loadModel]);
 
+  const setExpression = useCallback((expression) => {
+    if (!modelRef.current || !expression) return;
     try {
-      modelRef.current.expression(selectedExpression);
+      modelRef.current.expression(expression);
     } catch (error) {
       console.error("Error setting expression:", error);
     }
-  }, [selectedExpression]);
+  }, []);
 
-  useEffect(() => {
-    if (!modelRef.current || !selectedMotion) return;
-    const [group, indexStr] = selectedMotion.split("|");
+  const setMotion = useCallback((motion) => {
+    if (!modelRef.current || !motion) return;
+    const [group, indexStr] = motion.split("|");
     const index = parseInt(indexStr, 10);
     try {
       modelRef.current.motion(group, index);
     } catch (error) {
       console.error("Error setting motion:", error);
     }
-  }, [selectedMotion]);
+  }, []);
+
+  useEffect(() => {
+    setExpression(selectedExpression);
+  }, [selectedExpression, setExpression]);
+
+  useEffect(() => {
+    setMotion(selectedMotion);
+  }, [selectedMotion, setMotion]);
 
   return (
     <div className="flex items-center justify-center">
-      <canvas ref={canvasRef} width="400" height="400" className="border rounded" />
+      <div className="relative group">
+        <canvas 
+          ref={canvasRef} 
+          width="400" 
+          height="400" 
+          style={{ width: '300px', height: '300px' }}
+          className="rounded-xl shadow-inner bg-gradient-to-br from-muted/10 to-muted/30 transition-all duration-300 group-hover:shadow-lg" 
+        />
+        {(modelLoadingRef.current || loadingProgress) && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm rounded-xl animate-fade-in">
+            <div className="flex flex-col items-center space-y-3 text-muted-foreground">
+              <div className="relative">
+                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <div className="absolute inset-0 w-8 h-8 border-3 border-primary/20 rounded-full"></div>
+              </div>
+              <div className="text-center">
+                <span className="text-sm font-medium block">{loadingProgress || '加载模型中...'}</span>
+                <span className="text-xs text-muted-foreground/70 mt-1 block">请稍候</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 });

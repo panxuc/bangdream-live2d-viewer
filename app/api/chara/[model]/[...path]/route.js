@@ -127,7 +127,11 @@ export async function GET(request, context) {
     if (filePath === 'buildData.asset') {
       const data = await response.json();
       const processedData = Asset2JsonConverter.process_file(data, currentPath);
-      return NextResponse.json(processedData);
+      return NextResponse.json(processedData, {
+        headers: {
+          'Cache-Control': 'public, max-age=3600, s-maxage=86400'
+        }
+      });
     }
 
     const contentType = response.headers.get('content-type');
@@ -136,6 +140,7 @@ export async function GET(request, context) {
     return new NextResponse(buffer, {
       headers: {
         'content-type': contentType || 'application/octet-stream',
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400'
       },
     });
   } catch (error) {

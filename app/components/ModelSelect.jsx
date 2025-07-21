@@ -1,9 +1,9 @@
 "use client";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 
-export function ModelSelect({ characterId, onSelect, isDarkMode, value }) {
+const ModelSelect = memo(function ModelSelect({ characterId, onSelect, isDarkMode, value }) {
   const [modelList, setModelList] = useState([]);
 
   useEffect(() => {
@@ -30,11 +30,11 @@ export function ModelSelect({ characterId, onSelect, isDarkMode, value }) {
   }, [characterId, isDarkMode]);
 
   return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">模型</label>
+    <div className="space-y-3">
+      <label className="text-sm font-medium text-foreground/90">🎨 模型选择</label>
       <Select onValueChange={onSelect} value={value}>
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder="请选择模型" />
+        <SelectTrigger className="w-full bg-background hover:bg-accent transition-colors">
+          <SelectValue placeholder="✨ 请选择模型" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">请选择模型</SelectItem>
@@ -47,4 +47,6 @@ export function ModelSelect({ characterId, onSelect, isDarkMode, value }) {
       </Select>
     </div>
   );
-}
+});
+
+export { ModelSelect };

@@ -1,10 +1,41 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useCallback, memo, useMemo, useRef, useEffect } from "react";
 
-export function SaveButton({ modelData, selectedModel, selectedMotion, selectedExpression, canvasRef }) {
+const SaveButton = memo(function SaveButton({ modelData, selectedModel, selectedMotion, selectedExpression, canvasRef }) {
   const [imageSize, setImageSize] = useState('200');
-  const handleSave = () => {
+  const tempCanvasRef = useRef(null);
+  const finalCanvasRef = useRef(null);
+  
+  const fileName = useMemo(() => {
+    if (!selectedModel) return 'default.png';
+    const modelName = selectedModel;
+    const motionName = selectedMotion ? selectedMotion.split('|')[0] : '';
+    const expressionName = selectedExpression || '';
+    const fileNameParts = [modelName];
+    if (selectedMotion) fileNameParts.push(motionName);
+    if (selectedExpression) fileNameParts.push(expressionName);
+    return `${fileNameParts.join('_')}.png`;
+  }, [selectedModel, selectedMotion, selectedExpression]);
+
+  useEffect(() => {
+    if (!tempCanvasRef.current) {
+      tempCanvasRef.current = document.createElement('canvas');
+      tempCanvasRef.current.width = 400;
+      tempCanvasRef.current.height = 400;
+    }
+    if (!finalCanvasRef.current) {
+      finalCanvasRef.current = document.createElement('canvas');
+    }
+    
+    return () => {
+      tempCanvasRef.current = null;
+      finalCanvasRef.current = null;
+    };
+  }, []);
+
+  const handleSave = useCallback(() => {
     if (!modelData) {
       console.log("No model data available");
       return;
@@ -16,24 +47,19 @@ export function SaveButton({ modelData, selectedModel, selectedMotion, selectedE
       return;
     }
 
-    const modelName = selectedModel || 'default';
-    const motionName = selectedMotion ? selectedMotion.split('|')[0] : 'default';
-    const expressionName = selectedExpression || 'default';
-
-    const fileNameParts = [modelName];
-    if (selectedMotion) fileNameParts.push(motionName);
-    if (selectedExpression) fileNameParts.push(expressionName);
-    const fileName = `${fileNameParts.join('_')}.png`;
+    if (!tempCanvasRef.current || !finalCanvasRef.current) {
+      console.log("Canvas elements not ready");
+      return;
+    }
 
     try {
       const base64 = app.renderer.plugins.extract.base64(app.stage);
 
       const img = new Image();
       img.onload = () => {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 400;
-        tempCanvas.height = 400;
+        const tempCanvas = tempCanvasRef.current;
         const ctx = tempCanvas.getContext('2d');
+        ctx.clearRect(0, 0, 400, 400);
 
         const x = (img.width - 400) / 2;
         const y = (img.height - 576) / 2;
@@ -41,10 +67,11 @@ export function SaveButton({ modelData, selectedModel, selectedMotion, selectedE
         ctx.drawImage(img, x, y, 400, 400, 0, 0, 400, 400);
 
         const finalSize = parseInt(imageSize);
-        const finalCanvas = document.createElement('canvas');
+        const finalCanvas = finalCanvasRef.current;
         finalCanvas.width = finalSize;
         finalCanvas.height = finalSize;
         const finalCtx = finalCanvas.getContext('2d');
+        finalCtx.clearRect(0, 0, finalSize, finalSize);
 
         finalCtx.drawImage(tempCanvas, 0, 0, 400, 400, 0, 0, finalSize, finalSize);
 
@@ -59,7 +86,7 @@ export function SaveButton({ modelData, selectedModel, selectedMotion, selectedE
     } catch (error) {
       console.error("Error saving canvas:", error);
     }
-  };
+  }, [modelData, canvasRef, fileName, imageSize]);
 
   // const handleDownloadModel = async () => {
   //   if (!selectedModel) {
@@ -88,34 +115,35 @@ export function SaveButton({ modelData, selectedModel, selectedMotion, selectedE
   // };
 
   return (
-    <div className="flex flex-col space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">输出大小</label>
-        <select
-          value={imageSize}
-          onChange={(e) => setImageSize(e.target.value)}
-          className="w-24 px-2 py-1 border rounded"
-        >
-          <option value="200">200</option>
-          <option value="400">400</option>
-        </select>
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <label className="text-sm font-medium text-foreground/90">🖼️ 输出大小</label>
+        <Select onValueChange={setImageSize} value={imageSize}>
+          <SelectTrigger className="w-full bg-background hover:bg-accent transition-colors">
+            <SelectValue placeholder="选择输出大小" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="200">200px × 200px</SelectItem>
+            <SelectItem value="400">400px × 400px</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={handleSave}
-        disabled={!modelData || !selectedModel}
-      >
-        保存图片
-      </Button>
-      {/* <Button
-        variant="outline"
-        className="w-full"
-        onClick={handleDownloadModel}
-        disabled={!selectedModel}
-      >
-        下载模型
-      </Button> */}
+      
+      <div className="space-y-3">
+        <Button
+          className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleSave}
+          disabled={!modelData || !selectedModel}
+        >
+          {!modelData || !selectedModel ? '请选择模型' : '保存图片'}
+        </Button>
+        
+        <div className="text-xs text-muted-foreground text-center space-y-1">
+          <p>💡 若要用于NGA安科，推荐200px × 200px</p>
+        </div>
+      </div>
     </div>
   );
-}
+});
+
+export { SaveButton };

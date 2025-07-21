@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-let infoCache = null;
+let infoCache = new Map();
 let lastFetchTime = 0;
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
@@ -18,18 +18,15 @@ export async function GET(request) {
     const branch = isModified ? 'live2d-modified' : 'live2d';
     const cacheKey = `${branch}_${characterId}`;
     
-    if (!infoCache || !infoCache[cacheKey] || now - lastFetchTime > CACHE_DURATION) {
+    if (!infoCache.has(cacheKey) || now - lastFetchTime > CACHE_DURATION) {
       const response = await fetch(`https://bangdreamr2.haneoka.org/${branch}/_info.json`);
       const data = await response.json();
       
-      if (!infoCache) {
-        infoCache = {};
-      }
-      infoCache[cacheKey] = data;
+      infoCache.set(cacheKey, data);
       lastFetchTime = now;
     }
     
-    const characterModels = Object.entries(infoCache[cacheKey])
+    const characterModels = Object.entries(infoCache.get(cacheKey))
       .filter(([key]) => key.startsWith(characterId + '_') || key.startsWith('bili_' + characterId + '_'))
       .reduce((acc, [key, value]) => {
         acc[key] = value;
@@ -39,6 +36,11 @@ export async function GET(request) {
     return NextResponse.json({ 
       characterId,
       models: characterModels 
+    }, {
+      headers: {
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+        'ETag': `"${characterId}-${branch}-${lastFetchTime}"`
+      }
     });
   } catch (error) {
     console.error('Error fetching from Bestdori API:', error);
