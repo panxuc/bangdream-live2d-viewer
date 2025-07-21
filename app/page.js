@@ -66,7 +66,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-pink-500 to-purple-600"></div>
+              <img src="/favicon.ico" alt="BanG Dream! Live2D Viewer" className="h-8 w-8" />
               <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
                 BanG Dream! Live2D 查看器
               </h1>

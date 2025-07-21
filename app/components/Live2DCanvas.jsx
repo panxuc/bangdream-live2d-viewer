@@ -78,8 +78,9 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
           height: 400,
           backgroundAlpha: 0,
           antialias: true,
-          resolution: window.devicePixelRatio || 1,
-          autoDensity: true,
+          resolution: 1,
+          autoDensity: false,
+          resizeTo: null,
         });
 
         appRef.current = app;
