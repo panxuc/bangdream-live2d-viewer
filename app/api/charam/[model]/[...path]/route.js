@@ -9,7 +9,11 @@ export class Asset2JsonConverter {
     
     if (bundle_name.startsWith("live2d/chara/")) {
       const bundleBaseName = bundle_name.split('/').pop().replace('_rip', '');
-      if (bundleBaseName !== currentPath) {
+      if (bundleBaseName.endsWith('_general')) {
+        const prefix = `../../chara/${bundle_name.split('/').pop()}`;
+        file_name = `${prefix}/${file_name}`;
+      }
+      else if (bundleBaseName !== currentPath) {
         const prefix = `../${bundle_name.split('/').pop()}`;
         file_name = `${prefix}/${file_name}`;
       }
