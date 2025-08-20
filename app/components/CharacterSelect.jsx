@@ -6,35 +6,31 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { characters } from "../characters";
-import { categories as categoryOrder } from "../categories";
+import { useCharacters, useCategories } from "../hooks/useCharacters";
 
 const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
-  const [selectedCategories, setSelectedCategories] = useState(() => {
-    const categories = [...new Set(characters.flatMap(char => char.category))];
-    return Object.fromEntries(categories.map(cat => [cat, true]));
-  });
+  const { characters = [], loading: charactersLoading } = useCharacters();
+  const { categories: allCategories = [], loading: categoriesLoading } = useCategories();
+  
+  const [selectedCategories, setSelectedCategories] = useState({});
+  const [filterMode, setFilterMode] = useState("whitelist");
 
-  const [filterMode, setFilterMode] = useState("whitelist"); // "whitelist" 或 "blacklist"
-
-  const categories = useMemo(() => {
-    const allCategories = [...new Set(characters.flatMap(char => char.category))];
-    return allCategories.sort((a, b) => {
-      const indexA = categoryOrder.indexOf(a);
-      const indexB = categoryOrder.indexOf(b);
-      if (indexA === -1) return 1;
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
-  }, []);
+  // 初始化选中的分类
+  useMemo(() => {
+    if (allCategories.length > 0 && Object.keys(selectedCategories).length === 0) {
+      setSelectedCategories(Object.fromEntries(allCategories.map(cat => [cat, true])));
+    }
+  }, [allCategories, selectedCategories]);
 
   const filteredCharacters = useMemo(() => {
+    if (!characters.length) return [];
+    
     return characters.filter(char => {
       const hasSelectedCategory = char.category.some(cat => selectedCategories[cat]);
       const hasUnselectedCategory = char.category.some(cat => !selectedCategories[cat]);
       return filterMode === "whitelist" ? hasSelectedCategory : !hasUnselectedCategory;
     });
-  }, [selectedCategories, filterMode]);
+  }, [characters, selectedCategories, filterMode]);
 
   const handleCategoryChange = useCallback((category) => {
     setSelectedCategories(prev => ({
@@ -49,8 +45,8 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
         <label className="text-sm font-medium text-foreground/90">人物选择</label>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="text-xs bg-gradient-to-r from-pink-50 to-purple-50 hover:from-pink-100 hover:to-purple-100 dark:from-pink-950/30 dark:to-purple-950/30 border-pink-200 dark:border-pink-800 transition-all duration-200">
-              🎭 筛选
+            <Button variant="outline" size="sm" className="text-xs bg-[#db024d]/10 hover:bg-[#db024d]/20 dark:bg-[#db024d]/30 border-[#db024d]/20 dark:border-[#db024d]/50 transition-all duration-200">
+              筛选
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[400px]">
@@ -80,7 +76,7 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
                 </div>
               </RadioGroup>
               <div className="grid grid-cols-2 gap-2">
-                {categories.map((category) => (
+                {allCategories.map((category) => (
                   <div key={category} className="flex items-center space-x-2">
                     <Checkbox
                       id={category}
@@ -102,15 +98,19 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
       </div>
       <Select onValueChange={onSelect} value={value}>
         <SelectTrigger className="w-full bg-background hover:bg-accent transition-colors">
-          <SelectValue placeholder="🎤 请选择人物" />
+          <SelectValue placeholder="请选择人物" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">请选择人物</SelectItem>
-          {filteredCharacters.map((character) => (
-            <SelectItem key={character.id} value={character.id.toString()}>
-              {character.name}
-            </SelectItem>
-          ))}
+          {charactersLoading ? (
+            <SelectItem value="loading" disabled>加载中...</SelectItem>
+          ) : (
+            filteredCharacters.map((character) => (
+              <SelectItem key={character.id} value={character.id.toString()}>
+                {character.name}
+              </SelectItem>
+            ))
+          )}
         </SelectContent>
       </Select>
     </div>

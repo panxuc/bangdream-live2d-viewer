@@ -17,24 +17,21 @@ const ModelSelect = memo(function ModelSelect({ characterId, onSelect, isDarkMod
     fetch(`/api/models?characterId=${paddedId}&isModified=${isDarkMode}`)
       .then(res => res.json())
       .then(data => {
-        console.log(data);
         const models = Object.keys(data.models || {})
           .filter(key => !key.includes('_general'));
-        console.log(models);
         setModelList(models);
       })
-      .catch(err => {
-        console.error('Error loading models:', err);
+      .catch(() => {
         setModelList([]);
       });
   }, [characterId, isDarkMode]);
 
   return (
     <div className="space-y-3">
-      <label className="text-sm font-medium text-foreground/90">🎨 模型选择</label>
+      <label className="text-sm font-medium text-foreground/90">模型选择</label>
       <Select onValueChange={onSelect} value={value}>
         <SelectTrigger className="w-full bg-background hover:bg-accent transition-colors">
-          <SelectValue placeholder="✨ 请选择模型" />
+          <SelectValue placeholder="请选择模型" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">请选择模型</SelectItem>

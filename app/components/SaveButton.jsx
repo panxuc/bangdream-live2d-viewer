@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useCallback, memo, useMemo, useRef, useEffect } from "react";
 
@@ -37,18 +36,15 @@ const SaveButton = memo(function SaveButton({ modelData, selectedModel, selected
 
   const handleSave = useCallback(() => {
     if (!modelData) {
-      console.log("No model data available");
       return;
     }
 
     const app = canvasRef?.current?.getApp();
     if (!app) {
-      console.log("No app instance available");
       return;
     }
 
     if (!tempCanvasRef.current || !finalCanvasRef.current) {
-      console.log("Canvas elements not ready");
       return;
     }
 
@@ -84,7 +80,6 @@ const SaveButton = memo(function SaveButton({ modelData, selectedModel, selected
       };
       img.src = base64;
     } catch (error) {
-      console.error("Error saving canvas:", error);
     }
   }, [modelData, canvasRef, fileName, imageSize]);
 
@@ -117,7 +112,7 @@ const SaveButton = memo(function SaveButton({ modelData, selectedModel, selected
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <label className="text-sm font-medium text-foreground/90">🖼️ 输出大小</label>
+        <label className="text-sm font-medium text-foreground/90">输出大小</label>
         <Select onValueChange={setImageSize} value={imageSize}>
           <SelectTrigger className="w-full bg-background hover:bg-accent transition-colors">
             <SelectValue placeholder="选择输出大小" />
@@ -131,7 +126,7 @@ const SaveButton = memo(function SaveButton({ modelData, selectedModel, selected
       
       <div className="space-y-3">
         <Button
-          className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-[#db024d] hover:bg-[#c40243] text-white font-medium transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={handleSave}
           disabled={!modelData || !selectedModel}
         >

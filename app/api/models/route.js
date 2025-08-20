@@ -43,7 +43,6 @@ export async function GET(request) {
       }
     });
   } catch (error) {
-    console.error('Error fetching from Bestdori API:', error);
     return NextResponse.json({ error: 'Failed to fetch character data' }, { status: 500 });
   }
 } 

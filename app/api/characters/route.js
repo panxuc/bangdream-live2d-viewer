@@ -1,4 +1,6 @@
-export const characters = [
+import { NextResponse } from 'next/server';
+
+const characters = [
     { id: 1, name: "001 户山香澄", category: ["Poppin'Party"] },
     { id: 2, name: "002 花园多惠", category: ["Poppin'Party"] },
     { id: 3, name: "003 牛込里美", category: ["Poppin'Party"] },
@@ -107,9 +109,43 @@ export const characters = [
     { id: 341, name: "341 丰川祥子", category: ["Ave Mujica", "CRYCHIC"] },
     { id: 342, name: "342 宇田川亚子（幼年）", category: ["幼年"] },
     { id: 343, name: "343 要乐奈（幼年）", category: ["幼年"] },
-    { id: 344, name: "344 若叶睦", category: ["其他"] },
-    { id: 345, name: "345 若叶睦", category: ["其他"] },
+    // { id: 344, name: "344 若叶睦", category: ["其他"] },
+    // { id: 345, name: "345 若叶睦", category: ["其他"] },
     { id: 501, name: "501 MASKING&PAREO", category: ["其他"] },
     { id: 502, name: "502 宇田川亚子&白金燐子&LOCK", category: ["其他"] },
     { id: 601, name: "601 奥泽美咲", category: ["其他"] },
 ];
+
+export async function GET(request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const page = parseInt(searchParams.get('page') || '1');
+        const limit = parseInt(searchParams.get('limit') || '50');
+        const category = searchParams.get('category');
+        let filteredCharacters = characters;
+        if (category) {
+            filteredCharacters = characters.filter(char =>
+                char.category.includes(category)
+            );
+        }
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedCharacters = filteredCharacters.slice(startIndex, endIndex);
+        return NextResponse.json({
+            characters: paginatedCharacters,
+            pagination: {
+                page,
+                limit,
+                total: filteredCharacters.length,
+                totalPages: Math.ceil(filteredCharacters.length / limit),
+                hasNext: endIndex < filteredCharacters.length,
+                hasPrev: page > 1
+            }
+        });
+    } catch (error) {
+        return NextResponse.json(
+            { error: '获取角色数据失败' },
+            { status: 500 }
+        );
+    }
+}

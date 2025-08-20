@@ -33,10 +33,8 @@ const loadLive2DCore = () => {
 
   coreLoadPromise = Promise.all(scripts.map(loadScript))
     .then(() => {
-      console.log('Live2D core libraries loaded');
     })
     .catch(error => {
-      console.error('Error loading Live2D core libraries:', error);
       coreLoadPromise = null;
       throw error;
     });
@@ -150,9 +148,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
       }
 
       setLoadingProgress('');
-      console.log("Model loaded:", modelData);
     } catch (error) {
-      console.error("Error loading model:", error);
       setLoadingProgress('加载失败，请重试');
       setTimeout(() => setLoadingProgress(''), 3000);
     } finally {
@@ -169,7 +165,6 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
     try {
       modelRef.current.expression(expression);
     } catch (error) {
-      console.error("Error setting expression:", error);
     }
   }, []);
 
@@ -180,7 +175,6 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
     try {
       modelRef.current.motion(group, index);
     } catch (error) {
-      console.error("Error setting motion:", error);
     }
   }, []);
 
@@ -200,7 +194,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
           width="400" 
           height="400" 
           style={{ width: '300px', height: '300px' }}
-          className="rounded-xl shadow-inner bg-gradient-to-br from-muted/10 to-muted/30 transition-all duration-300 group-hover:shadow-lg" 
+          className="rounded-xl shadow-inner transition-all duration-300 group-hover:shadow-lg" 
         />
         {(modelLoadingRef.current || loadingProgress) && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm rounded-xl animate-fade-in">

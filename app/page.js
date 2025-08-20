@@ -67,7 +67,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <img src="/favicon.ico" alt="BanG Dream! Live2D Viewer" className="h-8 w-8" />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold text-[#db024d]">
                 BanG Dream! Live2D 查看器
               </h1>
             </div>
@@ -80,7 +80,7 @@ export default function Home() {
                   checked={isDarkMode}
                   onChange={(e) => setIsDarkMode(e.target.checked)}
                 />
-                <div className={`block w-14 h-7 rounded-full transition-all duration-300 ${isDarkMode ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gray-300 dark:bg-gray-600'} group-hover:shadow-lg`}></div>
+                <div className={`block w-14 h-7 rounded-full transition-all duration-300 ${isDarkMode ? 'bg-[#db024d]' : 'bg-gray-300 dark:bg-gray-600'} group-hover:shadow-lg`}></div>
                 <div className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-all duration-300 shadow-md ${isDarkMode ? 'transform translate-x-7' : ''}`}></div>
               </div>
             </label>
@@ -94,7 +94,7 @@ export default function Home() {
           {/* Left Panel: Controls */}
           <div className="lg:sticky lg:top-24 animate-fade-in">
             <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-4 md:p-6 space-y-4 md:space-y-6 shadow-sm hover:shadow-md transition-all duration-300 animate-scale-in">
-              <h2 className="text-lg font-semibold text-foreground/90 border-b pb-2">🎮 模型控制</h2>
+              <h2 className="text-lg font-semibold text-foreground/90 border-b pb-2">模型控制</h2>
               <div className="space-y-4">
                 <CharacterSelect onSelect={handleCharacterSelect} value={selectedCharacter} />
                 <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} isDarkMode={isDarkMode} value={selectedModel} />
@@ -121,7 +121,7 @@ export default function Home() {
           {/* Right Panel: Export */}
           <div className="lg:sticky lg:top-24 animate-fade-in" style={{animationDelay: '0.2s'}}>
             <div className="bg-card/50 backdrop-blur-sm border rounded-xl p-4 md:p-6 space-y-4 md:space-y-6 shadow-sm hover:shadow-md transition-all duration-300 animate-scale-in">
-              <h2 className="text-lg font-semibold text-foreground/90 border-b pb-2">📥 导出设置</h2>
+              <h2 className="text-lg font-semibold text-foreground/90 border-b pb-2">导出设置</h2>
               <SaveButton 
                 modelData={modelData}
                 selectedModel={selectedModel}
