@@ -1,3 +1,0 @@
-{
-    "buildCommand": "yarn prebuild && yarn link-local && yarn build"
-}
