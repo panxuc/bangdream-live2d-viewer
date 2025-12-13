@@ -11,29 +11,29 @@ export function useCharacters(category = null) {
         const fetchCharacters = async () => {
             try {
                 setData(prev => ({ ...prev, loading: true, error: null }));
-                
+
                 const params = new URLSearchParams({
                     limit: '1000' // 获取所有角色
                 });
-                
+
                 if (category) {
                     params.set('category', category);
                 }
-                
+
                 const response = await fetch(`/api/characters?${params}`);
-                
+
                 if (!response.ok) {
                     throw new Error('获取角色数据失败');
                 }
-                
+
                 const result = await response.json();
-                
+
                 setData({
                     characters: result.characters,
                     loading: false,
                     error: null
                 });
-                
+
             } catch (error) {
                 setData(prev => ({
                     ...prev,
@@ -60,21 +60,21 @@ export function useCategories() {
         const fetchCategories = async () => {
             try {
                 setData(prev => ({ ...prev, loading: true, error: null }));
-                
+
                 const response = await fetch('/api/categories');
-                
+
                 if (!response.ok) {
                     throw new Error('获取分类数据失败');
                 }
-                
+
                 const result = await response.json();
-                
+
                 setData({
                     categories: result.categories,
                     loading: false,
                     error: null
                 });
-                
+
             } catch (error) {
                 setData(prev => ({
                     ...prev,

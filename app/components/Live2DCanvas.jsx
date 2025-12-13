@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo, useState } from "react";
 import * as PIXI from "pixi.js";
+import { Loader2, Music } from "lucide-react"; // 引入图标库
 
 let coreLoadPromise = null;
 
 const loadLive2DCore = () => {
   if (typeof window === 'undefined') return Promise.resolve();
-  
+
   if (coreLoadPromise) return coreLoadPromise;
 
   const scripts = [
@@ -42,7 +43,7 @@ const loadLive2DCore = () => {
   return coreLoadPromise;
 };
 
-const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, selectedMotion, isDarkMode }, ref) {
+const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLoad, selectedExpression, selectedMotion, isDarkMode, backgroundColor = 'transparent' }, ref) {
   const canvasRef = useRef(null);
   const appRef = useRef(null);
   const modelRef = useRef(null);
@@ -70,14 +71,15 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
       }
 
       if (!appRef.current) {
+        // 严格保持原有的初始化参数
         const app = new PIXI.Application({
           view: canvasRef.current,
           width: 400,
           height: 400,
-          backgroundAlpha: 0,
+          backgroundAlpha: 0, // 保持透明
           antialias: true,
-          resolution: 1,
-          autoDensity: false,
+          resolution: 1,      // 保持原有分辨率
+          autoDensity: false, // 保持关闭
           resizeTo: null,
         });
 
@@ -118,29 +120,32 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
 
     try {
       modelLoadingRef.current = true;
-      setLoadingProgress('正在清理上一个模型...');
+      setLoadingProgress('Cleaning stage...');
 
       if (modelRef.current) {
         appRef.current.stage.removeChild(modelRef.current);
         modelRef.current = null;
       }
 
-      setLoadingProgress('正在获取模型数据...');
+      setLoadingProgress('Downloading data...');
       const response = await fetch(modelPath);
       const modelData = await response.json();
 
       modelData.url = modelUrl;
 
-      setLoadingProgress('正在加载Live2D模型...');
+      setLoadingProgress('Summoning character...');
       const model = await live2dDisplayRef.current.Live2DModel.from(modelData, {
         autoInteract: false,
       });
-      
-      setLoadingProgress('正在配置模型显示...');
+
+      setLoadingProgress('Setting up...');
       appRef.current.stage.addChild(model);
+
+      // 严格保持原有的缩放和位置参数
       model.scale.set(0.25);
       model.x = -50;
       model.y = -25;
+
       modelRef.current = model;
 
       if (onModelLoad) {
@@ -149,7 +154,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
 
       setLoadingProgress('');
     } catch (error) {
-      setLoadingProgress('加载失败，请重试');
+      console.error(error);
+      setLoadingProgress('Load Failed');
       setTimeout(() => setLoadingProgress(''), 3000);
     } finally {
       modelLoadingRef.current = false;
@@ -187,25 +193,40 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({ selectedModel, onModelLo
   }, [selectedMotion, setMotion]);
 
   return (
-    <div className="flex items-center justify-center">
+    <div className="flex items-center justify-center w-full h-full">
       <div className="relative group">
-        <canvas 
-          ref={canvasRef} 
-          width="400" 
-          height="400" 
-          style={{ width: '300px', height: '300px' }}
-          className="rounded-xl shadow-inner transition-all duration-300 group-hover:shadow-lg" 
+        {/* 画布：保持原始尺寸设置，仅添加 cursor-grab 样式 */}
+        <canvas
+          ref={canvasRef}
+          width="400"
+          height="400"
+          style={{
+            width: '300px',
+            height: '300px',
+            backgroundColor: backgroundColor === 'transparent' ? 'transparent' : backgroundColor
+          }}
+          className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
         />
+
+        {/* 邦邦风格的加载遮罩 */}
         {(modelLoadingRef.current || loadingProgress) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm rounded-xl animate-fade-in">
-            <div className="flex flex-col items-center space-y-3 text-muted-foreground">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20">
+            <div className="flex flex-col items-center space-y-3">
               <div className="relative">
-                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <div className="absolute inset-0 w-8 h-8 border-3 border-primary/20 rounded-full"></div>
+                {/* 旋转的外圈 - 邦邦粉 */}
+                <Loader2 className="w-10 h-10 text-[#E5004F] animate-spin" />
+                {/* 中心的音符 - 跳动效果 */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Music className="w-4 h-4 text-[#E5004F] animate-bounce" />
+                </div>
               </div>
               <div className="text-center">
-                <span className="text-sm font-medium block">{loadingProgress || '加载模型中...'}</span>
-                <span className="text-xs text-muted-foreground/70 mt-1 block">请稍候</span>
+                <span className="text-xs font-bold text-[#E5004F] tracking-wider uppercase block">
+                  Now Loading
+                </span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 block px-2 max-w-[150px] truncate">
+                  {loadingProgress}
+                </span>
               </div>
             </div>
           </div>
