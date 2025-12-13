@@ -104,7 +104,7 @@ export class Asset2JsonConverter {
 }
 
 export async function GET(request, context) {
-  const { model, path } = context.params;
+  const { model, path } = await context.params;
   
   if (!model) {
     return NextResponse.json({ error: 'Model parameter is required' }, { status: 400 });

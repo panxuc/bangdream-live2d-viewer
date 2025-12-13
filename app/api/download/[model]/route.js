@@ -77,7 +77,7 @@ function processModelData(data) {
 }
 
 export async function GET(request, context) {
-  const { model } = context.params;
+  const { model } = await context.params;
   const { searchParams } = new URL(request.url);
   const isModified = searchParams.get('isModified') === 'true';
 
