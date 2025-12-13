@@ -22,7 +22,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "jszip": "^3.10.1",
-    "lucide-react": "^0.509.0",
+    "lucide-react": "^0.552.0",
     "next": "15.4.5",
     "pixi-live2d-display": "file:./pixi-live2d-display",
     "pixi.js": "^6.5.10",
