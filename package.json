@@ -23,7 +23,7 @@
     "clsx": "^2.1.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.552.0",
-    "next": "15.4.5",
+    "next": "15.4.10",
     "pixi-live2d-display": "file:./pixi-live2d-display",
     "pixi.js": "^6.5.10",
     "react": "^19.0.0",
