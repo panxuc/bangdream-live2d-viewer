@@ -8,7 +8,7 @@ import { MotionSelect } from "./components/MotionSelect";
 import { ExpressionSelect } from "./components/ExpressionSelect";
 import { SaveButton } from "./components/SaveButton";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Star, Sparkles, Music, Settings, Moon, Sun, Download } from "lucide-react"; // 引入图标库增加视觉细节
+import { Star, Sparkles, Music, Settings, Moon, Sun, Download } from "lucide-react";
 
 export default function Home() {
   const [selectedCharacter, setSelectedCharacter] = useState(null);
@@ -18,6 +18,8 @@ export default function Home() {
   const [modelData, setModelData] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState('transparent');
+  const [reloadKey, setReloadKey] = useState(0);
+  const [isBatching, setIsBatching] = useState(false);
   const canvasRef = useRef();
 
   useEffect(() => {
@@ -59,6 +61,14 @@ export default function Home() {
 
   const handleExpressionSelect = useCallback((value) => {
     setSelectedExpression(value === "none" ? null : value);
+  }, []);
+
+  const handleModelReload = useCallback(() => {
+    // 1. 清空当前选中的动作和表情，回归初始
+    setSelectedMotion(null);
+    setSelectedExpression(null);
+    // 2. 更新 key，强制触发 Live2DCanvas 的 useEffect
+    setReloadKey(prev => prev + 1);
   }, []);
 
   // BanG Dream! 标志性粉色
@@ -134,19 +144,19 @@ export default function Home() {
               <div className="space-y-5">
                 <div className="control-group">
                   <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Character</label>
-                  <CharacterSelect onSelect={handleCharacterSelect} value={selectedCharacter} />
+                  <CharacterSelect onSelect={handleCharacterSelect} value={selectedCharacter} disabled={isBatching} />
                 </div>
                 <div className="control-group">
                   <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Costume</label>
-                  <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} isDarkMode={isDarkMode} value={selectedModel} />
+                  <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} isDarkMode={isDarkMode} value={selectedModel} onReload={handleModelReload} disabled={isBatching} />
                 </div>
                 <div className="control-group">
                   <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Motion</label>
-                  <MotionSelect modelData={modelData} onSelect={handleMotionSelect} value={selectedMotion} />
+                  <MotionSelect modelData={modelData} onSelect={handleMotionSelect} value={selectedMotion} disabled={isBatching} />
                 </div>
                 <div className="control-group">
                   <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Expression</label>
-                  <ExpressionSelect modelData={modelData} onSelect={handleExpressionSelect} value={selectedExpression} />
+                  <ExpressionSelect modelData={modelData} onSelect={handleExpressionSelect} value={selectedExpression} disabled={isBatching} />
                 </div>
               </div>
             </div>
@@ -178,12 +188,13 @@ export default function Home() {
                     selectedMotion={selectedMotion}
                     isDarkMode={isDarkMode}
                     backgroundColor={backgroundColor}
+                    reloadKey={reloadKey}
                   />
 
                   {/* 如果未选择模型，显示占位符 */}
                   {!selectedModel && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none">
-                      <Star className="w-16 h-16 mb-4 opacity-20 animate-bounce" />
+                      <Music className="w-16 h-16 mb-4 opacity-20 animate-bounce" />
                       {/* <p className="text-sm tracking-widest font-medium opacity-50">等待设置</p> */}
                     </div>
                   )}
@@ -216,6 +227,8 @@ export default function Home() {
                     canvasRef={canvasRef}
                     backgroundColor={backgroundColor}
                     onBackgroundColorChange={setBackgroundColor}
+                    onReload={handleModelReload}
+                    onBatchStatusChange={setIsBatching}
                   />
                 </div>
               </div>

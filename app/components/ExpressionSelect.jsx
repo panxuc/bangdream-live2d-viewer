@@ -4,9 +4,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { memo } from "react";
 import { Smile } from "lucide-react"; // 引入表情图标
 
-const ExpressionSelect = memo(function ExpressionSelect({ modelData, onSelect, value }) {
+const ExpressionSelect = memo(function ExpressionSelect({ modelData, onSelect, value, disabled }) {
   const expressions = modelData?.expressions || [];
-  const isDisabled = !modelData || expressions.length === 0;
+  const isDisabled = !modelData || expressions.length === 0 || disabled;
 
   return (
     <div className="w-full">
@@ -31,7 +31,7 @@ const ExpressionSelect = memo(function ExpressionSelect({ modelData, onSelect, v
 
         <SelectContent className="max-h-[300px] rounded-xl border-gray-100 dark:border-gray-800 shadow-xl bg-white/95 dark:bg-[#1a101f]/95 backdrop-blur-md">
           <SelectItem value="none" className="text-muted-foreground focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 mx-1">
-            <span className="italic">Default (Reset)</span>
+            <span className="italic">---</span>
           </SelectItem>
 
           {expressions.map((expression) => (

@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCharacters, useCategories } from "../hooks/useCharacters";
 import { Filter, SlidersHorizontal, Users } from "lucide-react"; // 新增 Users 图标
 
-const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
+const CharacterSelect = memo(function CharacterSelect({ onSelect, value, disabled }) {
   const { characters = [], loading: charactersLoading } = useCharacters();
   const { categories: allCategories = [], loading: categoriesLoading } = useCategories();
 
@@ -44,9 +44,9 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
     <div className="flex items-center gap-2 w-full">
       {/* 1. 下拉选择框 (占据主要空间) */}
       <div className="flex-1 min-w-0">
-        <Select onValueChange={onSelect} value={value}>
+        <Select onValueChange={onSelect} value={value} disabled={disabled}>
           <SelectTrigger
-            className="w-full h-11 rounded-xl bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-[#E5004F]/50 focus:ring-[#E5004F]/20 focus:border-[#E5004F] transition-all duration-300"
+            className={`w-full h-11 rounded-xl bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-[#E5004F]/50 focus:ring-[#E5004F]/20 focus:border-[#E5004F] transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <div className="flex items-center gap-2.5 truncate">
               <Users className="w-4 h-4 text-[#E5004F]" />
@@ -89,8 +89,9 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
           <Button
             variant="outline"
             size="icon"
+            disabled={disabled}
             className="h-11 w-11 shrink-0 rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:bg-[#E5004F]/10 hover:border-[#E5004F]/50 hover:text-[#E5004F] transition-all"
-            title="Filter Characters"
+            title="过滤角色"
           >
             <SlidersHorizontal className="w-5 h-5" />
           </Button>
@@ -101,10 +102,10 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value }) {
             <div className="space-y-1.5 border-b border-gray-100 dark:border-gray-800 pb-3">
               <h4 className="font-bold text-[#E5004F] flex items-center gap-2">
                 <Filter className="w-4 h-4" />
-                Filter Settings
+                过滤设置
               </h4>
               <p className="text-xs text-muted-foreground">
-                Customize which characters appear in the list.
+                自定义列表显示的角色
               </p>
             </div>
 

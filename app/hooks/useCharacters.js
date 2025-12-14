@@ -1,91 +1,31 @@
-import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 
-export function useCharacters(category = null) {
-    const [data, setData] = useState({
-        characters: [],
-        loading: true,
-        error: null
-    });
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-    useEffect(() => {
-        const fetchCharacters = async () => {
-            try {
-                setData(prev => ({ ...prev, loading: true, error: null }));
+export function useCharacters() {
+  const { data, error, isLoading } = useSWR('/api/characters?limit=114514', fetcher, {
+    // 人物列表很少变动，可以设置很长的缓存时间
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
 
-                const params = new URLSearchParams({
-                    limit: '1000' // 获取所有角色
-                });
-
-                if (category) {
-                    params.set('category', category);
-                }
-
-                const response = await fetch(`/api/characters?${params}`);
-
-                if (!response.ok) {
-                    throw new Error('获取角色数据失败');
-                }
-
-                const result = await response.json();
-
-                setData({
-                    characters: result.characters,
-                    loading: false,
-                    error: null
-                });
-
-            } catch (error) {
-                setData(prev => ({
-                    ...prev,
-                    loading: false,
-                    error: error.message
-                }));
-            }
-        };
-
-        fetchCharacters();
-    }, [category]);
-
-    return data;
+  return {
+    characters: data?.characters || [],
+    loading: isLoading,
+    error: error
+  };
 }
 
 export function useCategories() {
-    const [data, setData] = useState({
-        categories: [],
-        loading: true,
-        error: null
-    });
+  // 假设你有一个获取分类的 API，或者从 characters 数据中推导
+  // 这里演示如果是独立 API 的情况：
+  const { data, error, isLoading } = useSWR('/api/categories', fetcher, {
+     revalidateOnFocus: false,
+  });
 
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                setData(prev => ({ ...prev, loading: true, error: null }));
-
-                const response = await fetch('/api/categories');
-
-                if (!response.ok) {
-                    throw new Error('获取分类数据失败');
-                }
-
-                const result = await response.json();
-
-                setData({
-                    categories: result.categories,
-                    loading: false,
-                    error: null
-                });
-
-            } catch (error) {
-                setData(prev => ({
-                    ...prev,
-                    loading: false,
-                    error: error.message
-                }));
-            }
-        };
-
-        fetchCategories();
-    }, []);
-
-    return data;
+  return {
+    categories: data?.categories || [],
+    loading: isLoading,
+    error: error
+  };
 }
