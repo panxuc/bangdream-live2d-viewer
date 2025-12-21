@@ -2,16 +2,17 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, memo, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { Shirt, Loader2, RotateCw } from "lucide-react";
 import useSWR from "swr";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-const ModelSelect = memo(function ModelSelect({ characterId, onSelect, isDarkMode, value, onReload, disabled }) {
+const ModelSelect = memo(function ModelSelect({ characterId, onSelect, isModified, value, onReload, disabled }) {
   const paddedId = characterId ? characterId.padStart(3, '0') : null;
+  // 使用 isModified 参数来获取 chara 或 charam 列表
   const swrKey = paddedId
-    ? `/api/models?characterId=${paddedId}&isModified=${isDarkMode}`
+    ? `/api/models?characterId=${paddedId}&isModified=${isModified}`
     : null;
 
   const { data, isLoading } = useSWR(swrKey, fetcher, {
@@ -39,7 +40,6 @@ const ModelSelect = memo(function ModelSelect({ characterId, onSelect, isDarkMod
 
   return (
     <div className="flex items-center gap-2 w-full">
-      {/* 1. 下拉框 (占据主要空间) */}
       <div className="flex-1 min-w-0">
         <Select onValueChange={onSelect} value={value} disabled={isDisabled}>
           <SelectTrigger
@@ -91,12 +91,11 @@ const ModelSelect = memo(function ModelSelect({ characterId, onSelect, isDarkMod
         </Select>
       </div>
 
-      {/* 2. 刷新按钮 (新功能) */}
       <Button
         variant="outline"
         size="icon"
         onClick={handleReloadClick}
-        disabled={isDisabled || !value || value === "none"} // 只有选中了模型才能刷新
+        disabled={isDisabled || !value || value === "none"}
         className="h-11 w-11 shrink-0 rounded-xl border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 hover:bg-[#E5004F]/10 hover:border-[#E5004F]/50 hover:text-[#E5004F] transition-all disabled:opacity-50"
         title="重置模型"
       >

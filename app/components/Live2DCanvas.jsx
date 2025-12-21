@@ -4,189 +4,313 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMem
 import * as PIXI from "pixi.js";
 import { Loader2, Music } from "lucide-react";
 
-// ... loadLive2DCore 保持不变 ...
 let coreLoadPromise = null;
-const loadLive2DCore = () => { if (typeof window === 'undefined') return Promise.resolve(); if (coreLoadPromise) return coreLoadPromise; const scripts = ['/live2d.min.js', '/live2dcubismcore.min.js']; const loadScript = (src) => { return new Promise((resolve, reject) => { if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; } const script = document.createElement('script'); script.src = src; script.async = true; script.onload = resolve; script.onerror = reject; document.head.appendChild(script); }); }; coreLoadPromise = Promise.all(scripts.map(loadScript)).then(() => {}).catch(error => { coreLoadPromise = null; throw error; }); return coreLoadPromise; };
+const loadLive2DCore = () => { if (typeof window === 'undefined') return Promise.resolve(); if (coreLoadPromise) return coreLoadPromise; const scripts = ['/live2d.min.js', '/live2dcubismcore.min.js']; const loadScript = (src) => { return new Promise((resolve, reject) => { if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; } const script = document.createElement('script'); script.src = src; script.async = true; script.onload = resolve; script.onerror = reject; document.head.appendChild(script); }); }; coreLoadPromise = Promise.all(scripts.map(loadScript)).then(() => { }).catch(error => { coreLoadPromise = null; throw error; }); return coreLoadPromise; };
 
-const Live2DCanvas = forwardRef(function Live2DCanvas({ 
-  selectedModel, 
-  onModelLoad, 
-  selectedExpression, 
-  selectedMotion,
-  isDarkMode,
+const Live2DCanvas = forwardRef(function Live2DCanvas({
+  models = [],
+  onModelLoad,
   backgroundColor = 'transparent',
-  reloadKey = 0
 }, ref) {
   const canvasRef = useRef(null);
   const appRef = useRef(null);
-  const modelRef = useRef(null);
   const coreLoadedRef = useRef(false);
   const live2dDisplayRef = useRef(null);
-  const modelLoadingRef = useRef(false);
-  const [loadingProgress, setLoadingProgress] = useState('');
+  const modelInstancesRef = useRef({});
+  const prevModelsRef = useRef([]);
+  const [loadingStates, setLoadingStates] = useState({});
 
   useImperativeHandle(ref, () => ({
     getApp: () => appRef.current,
-    getModel: () => modelRef.current,
-    
+    getModels: () => Object.values(modelInstancesRef.current),
+    getModel: () => Object.values(modelInstancesRef.current)[0],
+
     internalPlayMotion: (group) => {
-      if (modelRef.current) {
-        try {
-          modelRef.current.internalModel.motionManager.stopAllMotions();
-          modelRef.current.motion(group, 0, 3); 
-        } catch (e) { console.error(e); }
-      }
+      Object.values(modelInstancesRef.current).forEach(model => {
+        if (model) {
+          try {
+            if (model.internalModel && model.internalModel.motionManager) {
+              model.internalModel.motionManager.stopAllMotions();
+            }
+            model.motion(group, 0, 3);
+          } catch (e) {
+            console.warn(`Model failed to play motion ${group}:`, e);
+          }
+        }
+      });
     },
+
     internalReset: () => {
-      if (modelRef.current) {
-        try {
-          modelRef.current.internalModel.motionManager.stopAllMotions();
-          modelRef.current.expression(null);
-        } catch (e) { console.error(e); }
-      }
+      Object.values(modelInstancesRef.current).forEach(model => {
+        if (model) {
+          try {
+            if (model.internalModel && model.internalModel.motionManager) {
+              model.internalModel.motionManager.stopAllMotions();
+            }
+            model.expression(null);
+          } catch (e) { console.error(e); }
+        }
+      });
     },
-    
-    // --- 升级版：智能画面检测 ---
+
+    // --- 核心修改：使用 postrender 事件驱动检测 ---
     waitUntilStable: async (signal) => {
       return new Promise((resolve) => {
         if (!appRef.current || !appRef.current.renderer) { resolve(); return; }
-
         const app = appRef.current;
-        const width = app.renderer.width;
-        const height = app.renderer.height;
-        const totalPixels = width * height;
-        
+        const gl = app.renderer.gl;
+
         let lastPixels = null;
         let stableFramesCount = 0;
-        
-        // 配置参数
-        const CHECK_INTERVAL = 100;     // 每 100ms 采样一次
-        const STABLE_DURATION = 1500;   // 需要连续稳定 1.5秒 (等待头发完全停下)
-        const REQUIRED_STABLE_CHECKS = STABLE_DURATION / CHECK_INTERVAL;
-        
-        // 阈值设置
-        const PIXEL_DIFF_TOLERANCE = 15; // 单个像素颜色值差异 < 15 视为相同 (忽略渲染噪点)
-        const SCREEN_CHANGE_TOLERANCE = 0.0001; // 允许 0.1% 的像素变化 (忽略呼吸动作/眨眼)
+        let lastCheckTime = 0;
 
-        // 强制延时：动作开始的前 0.5 秒不进行检测，确保动作已经开始播放
-        const warmupTimeout = setTimeout(() => {
-          
-          const interval = setInterval(() => {
-            if (signal && signal.aborted) {
-              clearInterval(interval);
-              clearTimeout(safetyTimeout);
+        // 参数配置
+        const CHECK_INTERVAL = 50;      // 每 50ms 采样一次（渲染循环中）
+        const STABLE_DURATION = 1500;   // 需要连续稳定 1.5 秒
+        const REQUIRED_STABLE_CHECKS = STABLE_DURATION / CHECK_INTERVAL;
+        const PIXEL_DIFF_TOLERANCE = 10;
+        const SCREEN_CHANGE_TOLERANCE = 0.001; // 0.1% 的像素变化视为静止
+
+        // 检测函数：在渲染循环的 postrender 阶段调用
+        const checkHandler = () => {
+          if (signal && signal.aborted) {
+            cleanup();
+            resolve();
+            return;
+          }
+
+          const now = performance.now();
+          if (now - lastCheckTime < CHECK_INTERVAL) return;
+          lastCheckTime = now;
+
+          // 此时 Drawing Buffer 是最新的，且包含内容
+          const width = gl.drawingBufferWidth;
+          const height = gl.drawingBufferHeight;
+
+          // 如果 Buffer 尺寸异常，跳过
+          if (width === 0 || height === 0) return;
+
+          const pixelCount = width * height;
+          // 注意：readPixels 比较耗时，但在 postrender 中读取是唯一准确且不闪烁的方法
+          const currentPixels = new Uint8Array(pixelCount * 4);
+          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, currentPixels);
+
+          if (lastPixels) {
+            let diffCount = 0;
+            // 降采样步长，提高性能
+            const step = 32;
+
+            for (let i = 0; i < currentPixels.length; i += step) {
+              // 比较 R, G, B (忽略 Alpha，避免透明背景干扰)
+              if (Math.abs(currentPixels[i] - lastPixels[i]) > PIXEL_DIFF_TOLERANCE ||
+                Math.abs(currentPixels[i + 1] - lastPixels[i + 1]) > PIXEL_DIFF_TOLERANCE ||
+                Math.abs(currentPixels[i + 2] - lastPixels[i + 2]) > PIXEL_DIFF_TOLERANCE) {
+                diffCount++;
+              }
+            }
+
+            // 计算变化率 (注意要除以实际采样的点数)
+            const changeRate = diffCount / (currentPixels.length / step);
+
+            if (changeRate < SCREEN_CHANGE_TOLERANCE) {
+              stableFramesCount++;
+            } else {
+              stableFramesCount = 0; // 一旦动了，重置计数
+            }
+
+            if (stableFramesCount >= REQUIRED_STABLE_CHECKS) {
+              cleanup();
               resolve();
+            }
+          }
+
+          // 保存当前帧（拷贝是必须的，因为 Uint8Array 是引用）
+          lastPixels = new Uint8Array(currentPixels);
+        };
+
+        const cleanup = () => {
+          app.renderer.off('postrender', checkHandler);
+          clearTimeout(safetyTimeout);
+          clearTimeout(warmupTimeout);
+        };
+
+        // 1. 预热：动作刚触发时，先等待 500ms 确保动作已经开始渲染
+        const warmupTimeout = setTimeout(() => {
+          // 2. 开始挂载检测钩子
+          app.renderer.on('postrender', checkHandler);
+        }, 500);
+
+        // 3. 安全兜底：如果 20 秒还没停，强制结束
+        const safetyTimeout = setTimeout(() => {
+          cleanup();
+          resolve();
+        }, 20000);
+      });
+    }
+  }));
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !canvasRef.current) return;
+    const init = async () => {
+      if (!coreLoadedRef.current) { await loadLive2DCore(); coreLoadedRef.current = true; }
+      if (!live2dDisplayRef.current) { const { Live2DModel } = await import('pixi-live2d-display'); live2dDisplayRef.current = { Live2DModel }; }
+      if (!appRef.current) {
+        const app = new PIXI.Application({
+          view: canvasRef.current,
+          width: 400,
+          height: 400,
+          backgroundAlpha: 0,
+          antialias: true,
+          resolution: 1,
+          autoDensity: false,
+          resizeTo: null,
+          // 必须开启，否则 postrender 后 buffer 可能会被浏览器清空
+          preserveDrawingBuffer: true
+        });
+
+        app.stage.sortableChildren = true;
+        appRef.current = app;
+      }
+    };
+    init();
+    return () => { if (appRef.current) appRef.current.destroy(true, true); };
+  }, []);
+
+  useEffect(() => {
+    if (!appRef.current || !coreLoadedRef.current || !live2dDisplayRef.current) return;
+
+    const prevModels = prevModelsRef.current;
+    prevModelsRef.current = models;
+    let isCancelled = false;
+
+    const syncModels = async () => {
+      const currentIds = new Set(models.map(m => m.id));
+
+      Object.keys(modelInstancesRef.current).forEach(id => {
+        if (!currentIds.has(id)) {
+          const modelToRemove = modelInstancesRef.current[id];
+          if (modelToRemove) {
+            try {
+              appRef.current.stage.removeChild(modelToRemove);
+              modelToRemove.destroy({ children: true });
+            } catch (e) { console.error("Error removing model:", e); }
+          }
+          delete modelInstancesRef.current[id];
+          setLoadingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+        }
+      });
+
+      for (let i = 0; i < models.length; i++) {
+        if (isCancelled) break;
+
+        const config = models[i];
+        const { id, modelId, motion, expression, x, y, scale, reloadKey, isModified } = config;
+
+        if (!modelId) continue;
+
+        const prevConfig = prevModels.find(m => m.id === id);
+        let instance = modelInstancesRef.current[id];
+
+        const modelPath = isModified ? `/api/charam/${modelId}/buildData.asset` : `/api/chara/${modelId}/buildData.asset`;
+        const modelUrl = isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`;
+
+        const needsReload = !instance ||
+          (prevConfig?.modelId !== modelId) ||
+          (prevConfig?.isModified !== isModified) ||
+          (prevConfig?.reloadKey !== reloadKey);
+
+        if (needsReload) {
+          try {
+            if (instance) {
+              appRef.current.stage.removeChild(instance);
+              instance.destroy({ children: true });
+              delete modelInstancesRef.current[id];
+              instance = null;
+            }
+
+            setLoadingStates(prev => ({ ...prev, [id]: 'Loading...' }));
+
+            const response = await fetch(modelPath);
+            if (!response.ok) throw new Error("Fetch failed");
+            const data = await response.json();
+            data.url = modelUrl;
+
+            if (isCancelled) return;
+
+            if (modelInstancesRef.current[id]) {
+              const existing = modelInstancesRef.current[id];
+              appRef.current.stage.removeChild(existing);
+              existing.destroy({ children: true });
+            }
+
+            const ModelClass = live2dDisplayRef.current.Live2DModel;
+            const newModel = await ModelClass.from(data, { autoInteract: false });
+
+            if (isCancelled) {
+              newModel.destroy();
               return;
             }
 
-            // 1. 获取当前画面的像素数据 (Uint8Array)
-            // extract.pixels 比 toDataURL 快得多，且是原始数据
-            const currentPixels = app.renderer.plugins.extract.pixels(app.stage);
+            appRef.current.stage.addChild(newModel);
+            modelInstancesRef.current[id] = newModel;
+            instance = newModel;
 
-            if (lastPixels) {
-              let diffCount = 0;
-              // 为了性能，我们不需要检查每一个像素，每隔 4 个像素检查一次 (步长为4的倍数，因为RGBA是4字节)
-              // 同时也作为一种降采样
-              const step = 4 * 4; // Check every 4th pixel
-              
-              for (let i = 0; i < currentPixels.length; i += step) {
-                // 比较 R, G, B (忽略 Alpha)
-                const rDiff = Math.abs(currentPixels[i] - lastPixels[i]);
-                const gDiff = Math.abs(currentPixels[i+1] - lastPixels[i+1]);
-                const bDiff = Math.abs(currentPixels[i+2] - lastPixels[i+2]);
-                
-                // 如果任意通道差异超过容差，视为该像素发生了变化
-                if (rDiff > PIXEL_DIFF_TOLERANCE || gDiff > PIXEL_DIFF_TOLERANCE || bDiff > PIXEL_DIFF_TOLERANCE) {
-                  diffCount++;
-                }
-              }
+            instance.scale.set(scale || 0.25);
+            instance.x = -50 + (x || 0);
+            instance.y = -25 + (y || 0);
 
-              // 计算变化率 (因为我们降采样了，所以分母也要除以步长因子)
-              const sampledTotalPixels = currentPixels.length / step;
-              const changeRate = diffCount / sampledTotalPixels;
+            if (onModelLoad) onModelLoad(data);
 
-              // 调试日志 (可选，用于调整阈值)
-              // console.log(`Change Rate: ${(changeRate * 100).toFixed(4)}%`);
-
-              // 2. 判断是否稳定
-              // 如果变化率低于阈值 (即只有呼吸/噪点)，则认为处于"静止"状态
-              if (changeRate < SCREEN_CHANGE_TOLERANCE) {
-                stableFramesCount++;
-              } else {
-                // 如果发现大幅度动作，重置计数器
-                stableFramesCount = 0;
-              }
-
-              // 3. 连续 N 次检测都稳定，则结束
-              if (stableFramesCount >= REQUIRED_STABLE_CHECKS) {
-                clearInterval(interval);
-                clearTimeout(safetyTimeout);
-                resolve();
-                return;
-              }
+            setLoadingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+          } catch (e) {
+            if (!isCancelled) {
+              console.error(`Failed to load model ${id}`, e);
+              setLoadingStates(prev => ({ ...prev, [id]: 'Error' }));
             }
+          }
+        } else {
+          if (instance) {
+            if (scale !== prevConfig?.scale) instance.scale.set(scale);
+            if (x !== prevConfig?.x) instance.x = -50 + x;
+            if (y !== prevConfig?.y) instance.y = -25 + y;
+          }
+        }
 
-            // 保存当前帧用于下次对比
-            // 注意：Uint8Array 是引用类型，需要拷贝，否则下次对比的是同一个数组
-            lastPixels = new Uint8Array(currentPixels);
+        if (instance) {
+          instance.zIndex = i;
+        }
 
-          }, CHECK_INTERVAL);
+        if (!isCancelled && instance) {
+          if (motion && motion !== prevConfig?.motion && motion !== "none") {
+            try { instance.motion(motion, 0, 3); } catch (e) { console.error(e); }
+          }
+          if (expression !== prevConfig?.expression) {
+            try { instance.expression(expression === "none" ? null : expression); } catch (e) { }
+          }
+        }
+      }
+    };
 
-          // 安全超时：15秒后强制结束
-          const safetyTimeout = setTimeout(() => {
-            clearInterval(interval);
-            resolve();
-          }, 15000);
+    syncModels();
 
-        }, 500); // 预热 500ms
-      });
-    }
-    // ----------------------------
-  }));
+    return () => { isCancelled = true; };
 
-  // ... useEffect, loadModel 等后续代码保持不变 ...
-  useEffect(() => { if (typeof window === 'undefined' || !canvasRef.current) return; const init = async () => { if (!coreLoadedRef.current) { await loadLive2DCore(); coreLoadedRef.current = true; } if (!live2dDisplayRef.current) { const { Live2DModel } = await import('pixi-live2d-display'); live2dDisplayRef.current = { Live2DModel }; } if (!appRef.current) { const app = new PIXI.Application({ view: canvasRef.current, width: 400, height: 400, backgroundAlpha: 0, antialias: true, resolution: 1, autoDensity: false, resizeTo: null, }); appRef.current = app; } }; init(); return () => { if (appRef.current) appRef.current.destroy(true, true); }; }, []);
+  }, [models, onModelLoad]);
 
-  const modelPath = useMemo(() => { if (!selectedModel) return null; return isDarkMode ? `/api/charam/${selectedModel}/buildData.asset` : `/api/chara/${selectedModel}/buildData.asset`; }, [selectedModel, isDarkMode]);
-  const modelUrl = useMemo(() => { if (!selectedModel) return null; return isDarkMode ? `/api/charam/${selectedModel}/` : `/api/chara/${selectedModel}/`; }, [selectedModel, isDarkMode]);
-
-  const loadModel = useCallback(async () => {
-    if (typeof window === 'undefined' || !selectedModel || !appRef.current || !coreLoadedRef.current || !live2dDisplayRef.current || modelLoadingRef.current || !modelPath || !modelUrl) return;
-    try {
-      modelLoadingRef.current = true;
-      setLoadingProgress('Cleaning stage...');
-      if (modelRef.current) { appRef.current.stage.removeChild(modelRef.current); modelRef.current = null; }
-      setLoadingProgress('Downloading data...');
-      const response = await fetch(modelPath);
-      const modelData = await response.json();
-      modelData.url = modelUrl;
-      setLoadingProgress('Summoning character...');
-      const model = await live2dDisplayRef.current.Live2DModel.from(modelData, { autoInteract: false });
-      setLoadingProgress('Setting up...');
-      appRef.current.stage.addChild(model);
-      model.scale.set(0.25);
-      model.x = -50;
-      model.y = -25;
-      modelRef.current = model;
-      if (onModelLoad) onModelLoad(modelData);
-      setLoadingProgress('');
-    } catch (error) { console.error(error); setLoadingProgress('Load Failed'); setTimeout(() => setLoadingProgress(''), 3000); } finally { modelLoadingRef.current = false; }
-  }, [selectedModel, modelPath, modelUrl, onModelLoad, reloadKey]);
-
-  useEffect(() => { loadModel(); }, [loadModel]);
-
-  const setExpression = useCallback((expression) => { if (!modelRef.current || !expression) return; try { modelRef.current.expression(expression); } catch (error) {} }, []);
-  const setMotion = useCallback((motionGroup) => { if (!modelRef.current || !motionGroup || motionGroup === "none") return; try { modelRef.current.motion(motionGroup, 0, 3); } catch (error) { console.error(error); } }, []);
-
-  useEffect(() => { setExpression(selectedExpression); }, [selectedExpression, setExpression]);
-  useEffect(() => { setMotion(selectedMotion); }, [selectedMotion, setMotion]);
+  const hasLoading = Object.values(loadingStates).some(v => v);
 
   return (
     <div className="flex items-center justify-center w-full h-full">
       <div className="relative group">
-        <canvas ref={canvasRef} width="400" height="400" style={{ width: '400px', height: '400px', backgroundColor: backgroundColor === 'transparent' ? 'transparent' : backgroundColor }} className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing" />
-        {(modelLoadingRef.current || loadingProgress) && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20">
+        <canvas
+          ref={canvasRef}
+          width="400"
+          height="400"
+          style={{ width: '400px', height: '400px', backgroundColor: backgroundColor === 'transparent' ? 'transparent' : backgroundColor }}
+          className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
+        />
+        {hasLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20 pointer-events-none">
             <div className="flex flex-col items-center space-y-3">
               <div className="relative">
                 <Loader2 className="w-10 h-10 text-[#E5004F] animate-spin" />
@@ -194,7 +318,6 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
               </div>
               <div className="text-center">
                 <span className="text-xs font-bold text-[#E5004F] tracking-wider uppercase block">Now Loading</span>
-                <span className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 block px-2 max-w-[150px] truncate">{loadingProgress}</span>
               </div>
             </div>
           </div>

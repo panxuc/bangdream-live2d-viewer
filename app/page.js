@@ -7,20 +7,85 @@ import { ModelSelect } from "./components/ModelSelect";
 import { MotionSelect } from "./components/MotionSelect";
 import { ExpressionSelect } from "./components/ExpressionSelect";
 import { SaveButton } from "./components/SaveButton";
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Star, Sparkles, Music, Settings, Moon, Sun, Download } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+// 引入 RotateCcw 图标
+import { Star, Settings, Moon, Sun, Download, Plus, Trash2, Layers, Move, Sparkles, RotateCcw } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+
+// SimpleSlider 组件 (保持上一步的状态)
+const SimpleSlider = ({ value, min, max, step, onChange, label, disabled, defaultValue }) => (
+  <div className={`space-y-2 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+    <div className="flex items-center justify-between text-xs text-gray-500">
+      <span className="font-bold uppercase">{label}</span>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => {
+            let val = parseFloat(e.target.value);
+            if (isNaN(val)) return;
+            onChange(val);
+          }}
+          disabled={disabled}
+          className="w-16 h-6 px-1 text-right bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded focus:border-[#E5004F] focus:outline-none transition-colors"
+        />
+
+        <button
+          onClick={() => onChange(defaultValue)}
+          disabled={disabled || value === defaultValue}
+          className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${value !== defaultValue ? 'text-[#E5004F]' : 'text-gray-300 dark:text-gray-600 cursor-default'
+            }`}
+          title={`重置为 ${defaultValue}`}
+        >
+          <RotateCcw className="w-3 h-3" />
+        </button>
+      </div>
+    </div>
+
+    <input
+      type="range"
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+      className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#E5004F] hover:accent-[#ff4785] transition-all"
+    />
+  </div>
+);
 
 export default function Home() {
-  const [selectedCharacter, setSelectedCharacter] = useState(null);
-  const [selectedModel, setSelectedModel] = useState(null);
-  const [selectedMotion, setSelectedMotion] = useState(null);
-  const [selectedExpression, setSelectedExpression] = useState(null);
-  const [modelData, setModelData] = useState(null);
+  // --- 状态管理 ---
+  const [models, setModels] = useState([
+    {
+      id: "default-1",
+      characterId: null,
+      modelId: null,
+      modelData: null,
+      motion: null,
+      expression: null,
+      x: 0,
+      y: 0,
+      scale: 0.25,
+      isModified: false,
+      isVisible: true
+    }
+  ]);
+
+  const [activeModelId, setActiveModelId] = useState("default-1");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState('transparent');
-  const [reloadKey, setReloadKey] = useState(0);
   const [isBatching, setIsBatching] = useState(false);
   const canvasRef = useRef();
+
+  const activeModel = useMemo(() =>
+    models.find(m => m.id === activeModelId) || models[0]
+    , [models, activeModelId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -36,48 +101,106 @@ export default function Home() {
     }
   }, [isDarkMode]);
 
+  // --- 模型操作辅助函数 ---
+  const updateActiveModel = useCallback((updates) => {
+    setModels(prev => prev.map(m =>
+      m.id === activeModelId ? { ...m, ...updates } : m
+    ));
+  }, [activeModelId]);
+
+  const handleAddModel = () => {
+    if (models.length >= 6) return;
+
+    const newId = `model-${Date.now()}`;
+    const newModel = {
+      id: newId,
+      characterId: null,
+      modelId: null,
+      modelData: null,
+      motion: null,
+      expression: null,
+      x: 0,
+      y: 0,
+      scale: 0.25,
+      isModified: false,
+      isVisible: true
+    };
+    setModels(prev => [...prev, newModel]);
+    setActiveModelId(newId);
+  };
+
+  const handleRemoveModel = (idToRemove) => {
+    if (models.length <= 1) return;
+    setModels(prev => {
+      const filtered = prev.filter(m => m.id !== idToRemove);
+      if (idToRemove === activeModelId) {
+        setActiveModelId(filtered[filtered.length - 1].id);
+      }
+      return filtered;
+    });
+  };
+
+  // --- 事件处理器 ---
   const handleCharacterSelect = useCallback((value) => {
-    setSelectedCharacter(value === "none" ? null : value);
-    setSelectedModel(null);
-    setModelData(null);
-    setSelectedMotion(null);
-    setSelectedExpression(null);
-  }, []);
+    updateActiveModel({
+      characterId: value === "none" ? null : value,
+      modelId: null,
+      modelData: null,
+      motion: null,
+      expression: null
+    });
+  }, [updateActiveModel]);
 
   const handleModelSelect = useCallback((value) => {
-    setSelectedModel(value === "none" ? null : value);
-    setModelData(null);
-    setSelectedMotion(null);
-    setSelectedExpression(null);
-  }, []);
+    updateActiveModel({
+      modelId: value === "none" ? null : value,
+      modelData: null,
+      motion: null,
+      expression: null
+    });
+  }, [updateActiveModel]);
 
   const handleModelLoad = useCallback((data) => {
-    setModelData(data);
-  }, []);
+    updateActiveModel({ modelData: data });
+  }, [updateActiveModel]);
 
   const handleMotionSelect = useCallback((value) => {
-    setSelectedMotion(value === "none" ? null : value);
-  }, []);
+    updateActiveModel({ motion: value === "none" ? null : value });
+  }, [updateActiveModel]);
 
   const handleExpressionSelect = useCallback((value) => {
-    setSelectedExpression(value === "none" ? null : value);
-  }, []);
+    updateActiveModel({ expression: value === "none" ? null : value });
+  }, [updateActiveModel]);
 
   const handleModelReload = useCallback(() => {
-    // 1. 清空当前选中的动作和表情，回归初始
-    setSelectedMotion(null);
-    setSelectedExpression(null);
-    // 2. 更新 key，强制触发 Live2DCanvas 的 useEffect
-    setReloadKey(prev => prev + 1);
+    setModels(prev => prev.map(m => ({
+      ...m,
+      motion: null,
+      expression: null,
+      reloadKey: (m.reloadKey || 0) + 1
+    })));
   }, []);
 
-  // BanG Dream! 标志性粉色
+  const handleTransformChange = (key, value) => {
+    updateActiveModel({ [key]: value });
+  };
+
+  const handleModifiedChange = useCallback((checked) => {
+    updateActiveModel({
+      isModified: checked,
+      modelId: null,
+      modelData: null,
+      motion: null,
+      expression: null
+    });
+  }, [updateActiveModel]);
+
   const BRAND_PINK = "#E5004F";
 
   return (
     <div className={`min-h-screen transition-colors duration-500 overflow-x-hidden selection:bg-[#E5004F] selection:text-white ${isDarkMode ? 'bg-[#1a101f]' : 'bg-[#fff5f8]'}`}>
 
-      {/* 背景装饰图案 (CSS Pattern) */}
+      {/* 背景装饰 */}
       <div className="fixed inset-0 z-0 opacity-40 pointer-events-none">
         <div className={`absolute inset-0 ${isDarkMode ? 'opacity-10' : 'opacity-30'}`}
           style={{
@@ -85,11 +208,9 @@ export default function Home() {
             backgroundSize: '30px 30px'
           }}>
         </div>
-        {/* 左上角装饰星 */}
         <div className="absolute -top-20 -left-20 text-[#E5004F]/10 animate-pulse-slow">
           <Star size={400} fill="currentColor" />
         </div>
-        {/* 右下角装饰圆 */}
         <div className="absolute -bottom-40 -right-20 w-96 h-96 bg-gradient-to-tl from-[#E5004F]/20 to-transparent rounded-full blur-3xl"></div>
       </div>
 
@@ -97,7 +218,6 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-[#E5004F]/10 bg-white/70 dark:bg-[#1a101f]/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo Area */}
             <div className="flex items-center gap-3 group">
               <div className="relative">
                 <div className="absolute inset-0 bg-[#E5004F] blur-lg opacity-40 rounded-full group-hover:opacity-60 transition-opacity"></div>
@@ -110,8 +230,6 @@ export default function Home() {
                 <span className="text-xs font-bold tracking-widest text-gray-400 uppercase dark:text-gray-500">Live2D Viewer</span>
               </div>
             </div>
-
-            {/* Dark Mode Toggle - Star Style */}
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="relative p-2 rounded-full overflow-hidden group transition-all duration-300 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -128,74 +246,215 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="container relative z-10 mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-[300px_1fr_280px] md:grid-cols-1 gap-6 items-start max-w-[1400px] mx-auto">
+        <div className="grid lg:grid-cols-[320px_1fr_280px] md:grid-cols-1 gap-6 items-start max-w-[1600px] mx-auto">
 
           {/* Left Panel: Controls */}
           <div className="lg:sticky lg:top-28 space-y-6">
+
+            {/* 1. 模型列表管理 */}
+            <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 rounded-2xl p-4 shadow-xl">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#E5004F]" />
+                  <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                    图层列表 ({models.length}/6)
+                  </h3>
+                </div>
+                <button
+                  onClick={handleAddModel}
+                  disabled={models.length >= 6 || isBatching}
+                  className={`p-1.5 rounded-lg transition-all ${models.length >= 6 || isBatching
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500'
+                    : 'bg-[#E5004F]/10 text-[#E5004F] hover:bg-[#E5004F] hover:text-white'
+                    }`}
+                  title={models.length >= 6 ? "已达到最大图层数" : "添加模型"}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
+                {models.map((model, index) => (
+                  <div
+                    key={model.id}
+                    onClick={() => !isBatching && setActiveModelId(model.id)}
+                    className={`flex items-center justify-between p-2 rounded-lg text-sm transition-all group ${isBatching ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
+                      } ${model.id === activeModelId
+                        ? 'bg-white dark:bg-gray-800 border-[#E5004F] shadow-sm border'
+                        : 'border border-transparent hover:bg-white/50 dark:hover:bg-gray-800/50'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500">
+                        {index + 1}
+                      </span>
+                      <span className="truncate font-medium text-gray-700 dark:text-gray-300">
+                        {model.modelId ? model.modelId : (model.characterId ? `Chara ${model.characterId}` : 'Empty Slot')}
+                        {model.isModified && <span className="ml-1 text-[10px] text-[#E5004F]">(M)</span>}
+                      </span>
+                    </div>
+                    {models.length > 1 && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveModel(model.id); }}
+                        disabled={isBatching}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+                        title="删除图层"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 2. 当前选中模型的详细设置 */}
             <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 rounded-2xl p-6 shadow-xl hover:shadow-[#E5004F]/10 transition-shadow duration-500 relative overflow-hidden group">
-              {/* 装饰线条 */}
               <div className="absolute top-0 left-0 w-1 h-full bg-[#E5004F]"></div>
 
-              <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
-                <Settings className="w-5 h-5 text-[#E5004F]" />
-                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Live2D 设置</h2>
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-[#E5004F]" />
+                  <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                    编辑图层 #{models.findIndex(m => m.id === activeModelId) + 1}
+                  </h2>
+                </div>
+                {models.length > 1 && (
+                  <button
+                    onClick={() => handleRemoveModel(activeModelId)}
+                    disabled={isBatching}
+                    className="p-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="删除当前图层"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               <div className="space-y-5">
                 <div className="control-group">
                   <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Character</label>
-                  <CharacterSelect onSelect={handleCharacterSelect} value={selectedCharacter} disabled={isBatching} />
+                  <CharacterSelect
+                    onSelect={handleCharacterSelect}
+                    value={activeModel.characterId}
+                    disabled={isBatching}
+                  />
                 </div>
+
+                {/* 移除原有的 Checkbox 行 */}
+
                 <div className="control-group">
-                  <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Costume</label>
-                  <ModelSelect characterId={selectedCharacter} onSelect={handleModelSelect} isDarkMode={isDarkMode} value={selectedModel} onReload={handleModelReload} disabled={isBatching} />
+                  {/* 修改后的标题行：包含 Label 和 Toggle Icon */}
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Costume</label>
+
+                    <button
+                      onClick={() => !isBatching && handleModifiedChange(!activeModel.isModified)}
+                      disabled={isBatching}
+                      className={`transition-all duration-300 transform active:scale-95 ${activeModel.isModified
+                        ? 'text-[#E5004F] drop-shadow-sm'
+                        : 'text-gray-300 dark:text-gray-600 hover:text-gray-400'
+                        } ${isBatching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={activeModel.isModified ? "禁用特训后形象 (Charam)" : "启用特训后形象 (Charam)"}
+                    >
+                      {/* 图标：启用时填充，禁用时描边 */}
+                      <Sparkles
+                        className="w-3.5 h-3.5"
+                        fill={activeModel.isModified ? "currentColor" : "none"}
+                      />
+                    </button>
+                  </div>
+
+                  <ModelSelect
+                    characterId={activeModel.characterId}
+                    onSelect={handleModelSelect}
+                    isModified={activeModel.isModified}
+                    value={activeModel.modelId}
+                    onReload={handleModelReload}
+                    disabled={isBatching}
+                  />
                 </div>
+
                 <div className="control-group">
                   <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Motion</label>
-                  <MotionSelect modelData={modelData} onSelect={handleMotionSelect} value={selectedMotion} disabled={isBatching} />
+                  <MotionSelect
+                    modelData={activeModel.modelData}
+                    onSelect={handleMotionSelect}
+                    value={activeModel.motion}
+                    disabled={isBatching}
+                  />
                 </div>
+
                 <div className="control-group">
                   <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Expression</label>
-                  <ExpressionSelect modelData={modelData} onSelect={handleExpressionSelect} value={selectedExpression} disabled={isBatching} />
+                  <ExpressionSelect
+                    modelData={activeModel.modelData}
+                    onSelect={handleExpressionSelect}
+                    value={activeModel.expression}
+                    disabled={isBatching}
+                  />
                 </div>
+
+                {activeModel.modelId && (
+                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Move className="w-4 h-4 text-[#E5004F]" />
+                      <span className="text-xs font-bold text-gray-400 uppercase">Transform</span>
+                    </div>
+
+                    <SimpleSlider
+                      label="X Offset" min={-400} max={400} step={1}
+                      value={activeModel.x} onChange={(v) => handleTransformChange('x', v)}
+                      disabled={isBatching}
+                      defaultValue={0}
+                    />
+                    <SimpleSlider
+                      label="Y Offset" min={-400} max={400} step={1}
+                      value={activeModel.y} onChange={(v) => handleTransformChange('y', v)}
+                      disabled={isBatching}
+                      defaultValue={0}
+                    />
+                    <SimpleSlider
+                      label="Scale" min={0.1} max={1.0} step={0.05}
+                      value={activeModel.scale} onChange={(v) => handleTransformChange('scale', v)}
+                      disabled={isBatching}
+                      defaultValue={0.25}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Center: Stage / Live2D Viewer */}
+          {/* Center: Stage */}
           <div className="flex flex-col items-center">
-            {/* 舞台光效模拟 */}
             <div className="relative w-full max-w-4xl aspect-[3/4] md:aspect-video lg:aspect-square xl:aspect-[4/3] group">
-              {/* 背景光晕 */}
               <div className="absolute -inset-1 bg-gradient-to-r from-[#E5004F] via-yellow-400 to-[#4338ca] rounded-[2rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
 
               <div className="relative h-full bg-white/40 dark:bg-gray-900/40 backdrop-blur-md border border-white/60 dark:border-gray-700/50 rounded-[1.8rem] shadow-2xl overflow-hidden flex flex-col">
-
-                {/* 顶部状态栏装饰 */}
-                <div className="h-8 bg-gradient-to-r from-white/50 to-transparent dark:from-gray-800/50 flex items-center px-4 space-x-2">
-                  <div className="w-2 h-2 rounded-full bg-[#E5004F]"></div>
-                  <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                  <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                <div className="h-8 bg-gradient-to-r from-white/50 to-transparent dark:from-gray-800/50 flex items-center px-4 space-x-2 justify-between">
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 rounded-full bg-[#E5004F]"></div>
+                    <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                    <div className="w-2 h-2 rounded-full bg-blue-400"></div>
+                  </div>
+                  <div className="text-[10px] font-mono text-gray-400 opacity-50">
+                    {models.filter(m => m.modelId).length} Active Model(s)
+                  </div>
                 </div>
 
-                {/* 画布主体 */}
                 <div className="flex-1 relative">
                   <Live2DCanvas
                     ref={canvasRef}
-                    selectedModel={selectedModel}
+                    models={models}
                     onModelLoad={handleModelLoad}
-                    selectedExpression={selectedExpression}
-                    selectedMotion={selectedMotion}
                     isDarkMode={isDarkMode}
                     backgroundColor={backgroundColor}
-                    reloadKey={reloadKey}
                   />
 
-                  {/* 如果未选择模型，显示占位符 */}
-                  {!selectedModel && (
+                  {!models.some(m => m.modelId) && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 pointer-events-none">
-                      <Music className="w-16 h-16 mb-4 opacity-20 animate-bounce" />
-                      {/* <p className="text-sm tracking-widest font-medium opacity-50">等待设置</p> */}
+                      {/* Music Icon */}
                     </div>
                   )}
                 </div>
@@ -203,10 +462,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Panel: Export & Info */}
+          {/* Right Panel: Export */}
           <div className="lg:sticky lg:top-28 space-y-6">
-            <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 rounded-2xl p-6 shadow-xl transition-shadow duration-500 relative overflow-hidden">
-              {/* 装饰线条 */}
+            <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-1 h-full bg-yellow-400"></div>
 
               <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-100 dark:border-gray-800">
@@ -215,15 +473,12 @@ export default function Home() {
               </div>
 
               <div className="space-y-4">
-                {/* <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                  调整好姿势和表情，将这一瞬间保存下来吧！
-                </p> */}
                 <div className="pt-2">
                   <SaveButton
-                    modelData={modelData}
-                    selectedModel={selectedModel}
-                    selectedMotion={selectedMotion}
-                    selectedExpression={selectedExpression}
+                    modelData={activeModel.modelData}
+                    selectedModel={activeModel.modelId}
+                    selectedMotion={activeModel.motion}
+                    selectedExpression={activeModel.expression}
                     canvasRef={canvasRef}
                     backgroundColor={backgroundColor}
                     onBackgroundColorChange={setBackgroundColor}
@@ -234,21 +489,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 底部版权风格文字 */}
             <div className="text-center opacity-40">
               <p className="text-[10px] uppercase font-bold tracking-widest">Unofficial Fan Project</p>
               <p className="text-[10px] uppercase font-bold tracking-widest">No Commercial Use</p>
-              <p className="text-[10px] mt-1 font-serif italic">
-                Powered by{' '}
-                <a
-                  href="https://bestdori.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-[#E5004F] hover:underline transition-colors border-b border-transparent"
-                >
-                  Bestdori
-                </a>
-              </p>
             </div>
           </div>
         </div>
