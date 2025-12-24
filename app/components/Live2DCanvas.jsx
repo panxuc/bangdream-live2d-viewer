@@ -219,6 +219,14 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
           (prevConfig?.isModified !== isModified) ||
           (prevConfig?.reloadKey !== reloadKey);
 
+        // --- 计算基于缩放的动态基准偏移 ---
+        const currentScale = scale || 0.25;
+        // 规则：0.25为基准，每增加0.05，baseOffset增加-50
+        // 公式：(当前缩放 - 0.25) / 0.05 * -50
+        const dynamicOffset = ((currentScale - 0.25) / 0.05) * -50;
+        const baseX = -50 + dynamicOffset;
+        const baseY = -25 + dynamicOffset;
+
         if (needsReload) {
           try {
             if (instance) {
@@ -255,9 +263,10 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
             modelInstancesRef.current[id] = newModel;
             instance = newModel;
 
-            instance.scale.set(scale || 0.25);
-            instance.x = -50 + (x || 0);
-            instance.y = -25 + (y || 0);
+            // 初始化位置和缩放
+            instance.scale.set(currentScale);
+            instance.x = baseX + (x || 0);
+            instance.y = baseY + (y || 0);
 
             if (onModelLoad) onModelLoad(data);
 
@@ -270,9 +279,17 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
           }
         } else {
           if (instance) {
-            if (scale !== prevConfig?.scale) instance.scale.set(scale);
-            if (x !== prevConfig?.x) instance.x = -50 + x;
-            if (y !== prevConfig?.y) instance.y = -25 + y;
+            // 如果缩放发生变化，或者 x/y 发生变化
+            // 缩放变化会影响基准坐标 (baseX, baseY)，因此必须更新位置
+            if (scale !== prevConfig?.scale) {
+              instance.scale.set(currentScale);
+              instance.x = baseX + (x || 0);
+              instance.y = baseY + (y || 0);
+            } else {
+              // 如果缩放没变，仅更新偏移
+              if (x !== prevConfig?.x) instance.x = baseX + x;
+              if (y !== prevConfig?.y) instance.y = baseY + y;
+            }
           }
         }
 

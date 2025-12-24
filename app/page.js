@@ -403,19 +403,19 @@ export default function Home() {
                     </div>
 
                     <SimpleSlider
-                      label="X Offset" min={-400} max={400} step={1}
+                      label="X Offset" min={-400} max={400} step={10}
                       value={activeModel.x} onChange={(v) => handleTransformChange('x', v)}
                       disabled={isBatching}
                       defaultValue={0}
                     />
                     <SimpleSlider
-                      label="Y Offset" min={-400} max={400} step={1}
+                      label="Y Offset" min={-400} max={400} step={10}
                       value={activeModel.y} onChange={(v) => handleTransformChange('y', v)}
                       disabled={isBatching}
                       defaultValue={0}
                     />
                     <SimpleSlider
-                      label="Scale" min={0.1} max={1.0} step={0.05}
+                      label="Scale" min={0.1} max={0.7} step={0.05}
                       value={activeModel.scale} onChange={(v) => handleTransformChange('scale', v)}
                       disabled={isBatching}
                       defaultValue={0.25}
