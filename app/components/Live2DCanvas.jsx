@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useMemo, useState } from "react";
+import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from "react";
 import * as PIXI from "pixi.js";
 import { Loader2, Music } from "lucide-react";
 
@@ -24,36 +24,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
     getApp: () => appRef.current,
     getModels: () => Object.values(modelInstancesRef.current),
     getModel: () => Object.values(modelInstancesRef.current)[0],
-
-    internalPlayMotion: (group) => {
-      Object.values(modelInstancesRef.current).forEach(model => {
-        if (model) {
-          try {
-            if (model.internalModel && model.internalModel.motionManager) {
-              model.internalModel.motionManager.stopAllMotions();
-            }
-            model.motion(group, 0, 3);
-          } catch (e) {
-            console.warn(`Model failed to play motion ${group}:`, e);
-          }
-        }
-      });
-    },
-
-    internalReset: () => {
-      Object.values(modelInstancesRef.current).forEach(model => {
-        if (model) {
-          try {
-            if (model.internalModel && model.internalModel.motionManager) {
-              model.internalModel.motionManager.stopAllMotions();
-            }
-            model.expression(null);
-          } catch (e) { console.error(e); }
-        }
-      });
-    },
-
-    // --- 核心修改：使用 postrender 事件驱动检测 ---
+    internalPlayMotion: (group) => { Object.values(modelInstancesRef.current).forEach(m => { try { m?.internalModel?.motionManager?.stopAllMotions(); m?.motion(group, 0, 3); } catch (e) { } }); },
+    internalReset: () => { Object.values(modelInstancesRef.current).forEach(m => { try { m?.internalModel?.motionManager?.stopAllMotions(); m?.expression(null); } catch (e) { } }); },
     waitUntilStable: async (signal) => {
       return new Promise((resolve) => {
         if (!appRef.current || !appRef.current.renderer) { resolve(); return; }
@@ -156,18 +128,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
       if (!live2dDisplayRef.current) { const { Live2DModel } = await import('pixi-live2d-display'); live2dDisplayRef.current = { Live2DModel }; }
       if (!appRef.current) {
         const app = new PIXI.Application({
-          view: canvasRef.current,
-          width: 400,
-          height: 400,
-          backgroundAlpha: 0,
-          antialias: true,
-          resolution: 1,
-          autoDensity: false,
-          resizeTo: null,
-          // 必须开启，否则 postrender 后 buffer 可能会被浏览器清空
-          preserveDrawingBuffer: true
+          view: canvasRef.current, width: 400, height: 400, backgroundAlpha: 0, antialias: true, resolution: 1, autoDensity: false, resizeTo: null, preserveDrawingBuffer: true
         });
-
         app.stage.sortableChildren = true;
         appRef.current = app;
       }
@@ -185,16 +147,10 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
 
     const syncModels = async () => {
       const currentIds = new Set(models.map(m => m.id));
-
       Object.keys(modelInstancesRef.current).forEach(id => {
         if (!currentIds.has(id)) {
-          const modelToRemove = modelInstancesRef.current[id];
-          if (modelToRemove) {
-            try {
-              appRef.current.stage.removeChild(modelToRemove);
-              modelToRemove.destroy({ children: true });
-            } catch (e) { console.error("Error removing model:", e); }
-          }
+          const m = modelInstancesRef.current[id];
+          if (m) { try { appRef.current.stage.removeChild(m); m.destroy({ children: true }); } catch (e) { } }
           delete modelInstancesRef.current[id];
           setLoadingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
         }
@@ -202,104 +158,108 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
 
       for (let i = 0; i < models.length; i++) {
         if (isCancelled) break;
-
-        const config = models[i];
-        const { id, modelId, motion, expression, x, y, scale, reloadKey, isModified } = config;
-
+        // 增加 isHeadless 属性解构
+        const { id, modelId, motion, expression, x, y, scale, reloadKey, isModified, customModelData, isHeadless } = models[i];
         if (!modelId) continue;
 
         const prevConfig = prevModels.find(m => m.id === id);
         let instance = modelInstancesRef.current[id];
 
-        const modelPath = isModified ? `/api/charam/${modelId}/buildData.asset` : `/api/chara/${modelId}/buildData.asset`;
-        const modelUrl = isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`;
-
         const needsReload = !instance ||
           (prevConfig?.modelId !== modelId) ||
           (prevConfig?.isModified !== isModified) ||
-          (prevConfig?.reloadKey !== reloadKey);
+          (prevConfig?.reloadKey !== reloadKey) ||
+          (prevConfig?.customModelData !== customModelData) ||
+          (prevConfig?.isHeadless !== isHeadless); // 监听 isHeadless 变化
 
-        // --- 计算基于缩放的动态基准偏移 ---
         const currentScale = scale || 0.25;
-        // 规则：0.25为基准，每增加0.05，baseOffset增加-50
-        // 公式：(当前缩放 - 0.25) / 0.05 * -50
         const dynamicOffset = ((currentScale - 0.25) / 0.05) * -50;
         const baseX = -50 + dynamicOffset;
         const baseY = -25 + dynamicOffset;
 
         if (needsReload) {
           try {
-            if (instance) {
-              appRef.current.stage.removeChild(instance);
-              instance.destroy({ children: true });
-              delete modelInstancesRef.current[id];
-              instance = null;
-            }
-
+            if (instance) { appRef.current.stage.removeChild(instance); instance.destroy({ children: true }); delete modelInstancesRef.current[id]; instance = null; }
             setLoadingStates(prev => ({ ...prev, [id]: 'Loading...' }));
 
-            const response = await fetch(modelPath);
-            if (!response.ok) throw new Error("Fetch failed");
-            const data = await response.json();
-            data.url = modelUrl;
+            const ModelClass = live2dDisplayRef.current.Live2DModel;
+            let data;
+
+            // 1. 获取数据 (无论是 Fetch 还是 Custom)
+            if (customModelData) {
+              // 深度拷贝以防修改原对象
+              data = JSON.parse(JSON.stringify(customModelData));
+            } else {
+              const modelPath = isModified ? `/api/charam/${modelId}/buildData.asset` : `/api/chara/${modelId}/buildData.asset`;
+              const modelUrl = isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`;
+
+              const response = await fetch(modelPath);
+              if (!response.ok) throw new Error("Fetch failed");
+              data = await response.json();
+              data.url = modelUrl;
+
+              // 【重要修复】这里绝对不能调用 onModelLoad，否则会触发死循环
+            }
 
             if (isCancelled) return;
 
-            if (modelInstancesRef.current[id]) {
-              const existing = modelInstancesRef.current[id];
-              appRef.current.stage.removeChild(existing);
-              existing.destroy({ children: true });
+            // 2. 处理“去头”逻辑 (Headless Mode)
+            console.log(`Model ${modelId} isHeadless: ${isHeadless}`);
+            if (isHeadless && data.textures && Array.isArray(data.textures)) {
+              const hasTex00 = data.textures.some(t => t.includes('texture_00.png'));
+              const hasTex01 = data.textures.some(t => t.includes('texture_01.png'));
+              console.log(`[Live2D] Headless mode check for ${modelId}: hasTex00=${hasTex00}, hasTex01=${hasTex01}`);
+              if (hasTex00 && hasTex01) {
+                console.log(`[Live2D] Applying Headless mode for ${modelId}`);
+                data.textures = data.textures.map(t => {
+                  if (t.includes('texture_00.png')) {
+                    // 将 texture_00 (通常是头部) 替换为通用空/透明资源
+                    return '../../chara/000_general/texture_00.png';
+                  }
+                  return t;
+                });
+              }
             }
 
-            const ModelClass = live2dDisplayRef.current.Live2DModel;
+            // 3. 创建模型实例
             const newModel = await ModelClass.from(data, { autoInteract: false });
 
-            if (isCancelled) {
-              newModel.destroy();
-              return;
-            }
+            if (isCancelled) { newModel.destroy(); return; }
 
             appRef.current.stage.addChild(newModel);
-            modelInstancesRef.current[id] = newModel;
+            modelInstancesRef.current[id] = newModel; // 必须先注册实例
             instance = newModel;
 
-            // 初始化位置和缩放
             instance.scale.set(currentScale);
             instance.x = baseX + (x || 0);
             instance.y = baseY + (y || 0);
 
-            if (onModelLoad) onModelLoad(data);
+            // 【重要修复】实例注册完成后，再调用回调，这样下次渲染时 !instance 为 false
+            if (!isCancelled && onModelLoad) {
+              onModelLoad(data);
+            }
 
             setLoadingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
           } catch (e) {
-            if (!isCancelled) {
-              console.error(`Failed to load model ${id}`, e);
-              setLoadingStates(prev => ({ ...prev, [id]: 'Error' }));
-            }
+            if (!isCancelled) { console.error(`Failed to load model ${id}`, e); setLoadingStates(prev => ({ ...prev, [id]: 'Error' })); }
           }
         } else {
           if (instance) {
-            // 如果缩放发生变化，或者 x/y 发生变化
-            // 缩放变化会影响基准坐标 (baseX, baseY)，因此必须更新位置
             if (scale !== prevConfig?.scale) {
               instance.scale.set(currentScale);
               instance.x = baseX + (x || 0);
               instance.y = baseY + (y || 0);
             } else {
-              // 如果缩放没变，仅更新偏移
               if (x !== prevConfig?.x) instance.x = baseX + x;
               if (y !== prevConfig?.y) instance.y = baseY + y;
             }
           }
         }
 
-        if (instance) {
-          instance.zIndex = i;
-        }
-
+        if (instance) instance.zIndex = i;
         if (!isCancelled && instance) {
           if (motion && motion !== prevConfig?.motion && motion !== "none") {
-            try { instance.motion(motion, 0, 3); } catch (e) { console.error(e); }
+            try { instance.motion(motion, 0, 3); } catch (e) { }
           }
           if (expression !== prevConfig?.expression) {
             try { instance.expression(expression === "none" ? null : expression); } catch (e) { }
@@ -307,11 +267,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
         }
       }
     };
-
     syncModels();
-
     return () => { isCancelled = true; };
-
   }, [models, onModelLoad]);
 
   const hasLoading = Object.values(loadingStates).some(v => v);
@@ -319,26 +276,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
   return (
     <div className="flex items-center justify-center w-full h-full">
       <div className="relative group">
-        <canvas
-          ref={canvasRef}
-          width="400"
-          height="400"
-          style={{ width: '400px', height: '400px', backgroundColor: backgroundColor === 'transparent' ? 'transparent' : backgroundColor }}
-          className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
-        />
-        {hasLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20 pointer-events-none">
-            <div className="flex flex-col items-center space-y-3">
-              <div className="relative">
-                <Loader2 className="w-10 h-10 text-[#E5004F] animate-spin" />
-                <div className="absolute inset-0 flex items-center justify-center"> <Music className="w-4 h-4 text-[#E5004F] animate-bounce" /> </div>
-              </div>
-              <div className="text-center">
-                <span className="text-xs font-bold text-[#E5004F] tracking-wider uppercase block">Now Loading</span>
-              </div>
-            </div>
-          </div>
-        )}
+        <canvas ref={canvasRef} width="400" height="400" style={{ width: '400px', height: '400px', backgroundColor: backgroundColor === 'transparent' ? 'transparent' : backgroundColor }} className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing" />
+        {hasLoading && (<div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20 pointer-events-none"> <div className="flex flex-col items-center space-y-3"> <div className="relative"> <Loader2 className="w-10 h-10 text-[#E5004F] animate-spin" /> <div className="absolute inset-0 flex items-center justify-center"> <Music className="w-4 h-4 text-[#E5004F] animate-bounce" /> </div> </div> <div className="text-center"> <span className="text-xs font-bold text-[#E5004F] tracking-wider uppercase block">Now Loading</span> </div> </div> </div>)}
       </div>
     </div>
   );

@@ -2,9 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input"; // 引入 Input 组件
+import { Input } from "@/components/ui/input";
 import { useState, useCallback, memo, useMemo, useRef } from "react";
-import { Camera, Info, Image as ImageIcon, Scaling, Palette, Check, Layers, Loader2, StopCircle, Pencil } from "lucide-react";
+import { Camera, Image as ImageIcon, Scaling, Check, Layers, Loader2, StopCircle, Pencil } from "lucide-react";
 import * as PIXI from "pixi.js";
 
 const BACKGROUND_OPTIONS = [
@@ -18,6 +18,7 @@ const SaveButton = memo(function SaveButton({
   selectedModel,
   selectedMotion,
   selectedExpression,
+  borrowedModelId, // <--- 新增 Prop：借用的模型ID
   canvasRef,
   backgroundColor,
   onBackgroundColorChange,
@@ -25,24 +26,27 @@ const SaveButton = memo(function SaveButton({
   onBatchStatusChange
 }) {
   const [imageSize, setImageSize] = useState('200');
-  const [customName, setCustomName] = useState(''); // 新增：自定义模型名状态
+  const [customName, setCustomName] = useState('');
   const [isBatching, setIsBatching] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentName: '' });
   const abortControllerRef = useRef(null);
 
-  // 获取文件名的通用逻辑：优先使用 customName，否则使用 selectedModel
   const getFileName = useCallback((motionGroup, expression) => {
-    const clean = (str) => str ? str.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '') : ''; // 稍微放宽正则允许中文
+    const clean = (str) => str ? str.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '') : '';
 
-    // 核心修改：决定基础名称
     const baseName = customName.trim() ? customName.trim() : selectedModel;
 
     const parts = [clean(baseName)];
+
+    if (borrowedModelId) {
+      parts.push(clean(borrowedModelId));
+    }
+
     if (motionGroup) parts.push(clean(motionGroup));
     if (expression) parts.push(clean(expression));
 
     return `${parts.join('_')}.png`;
-  }, [customName, selectedModel]);
+  }, [customName, selectedModel, borrowedModelId]);
 
   // 当前预览的文件名
   const currentFileName = useMemo(() => {
@@ -55,28 +59,23 @@ const SaveButton = memo(function SaveButton({
     if (!app || !app.renderer) return;
 
     const targetSize = parseInt(imageSize);
-    // 创建渲染纹理
     const renderTexture = PIXI.RenderTexture.create({ width: 400, height: 400, resolution: 1 });
     app.renderer.render(app.stage, renderTexture);
     const rawCanvas = app.renderer.plugins.extract.canvas(renderTexture);
 
-    // 创建最终 Canvas 用于缩放和背景处理
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = targetSize;
     finalCanvas.height = targetSize;
     const ctx = finalCanvas.getContext('2d');
 
-    // 填充背景
     if (backgroundColor && backgroundColor !== 'transparent') {
       ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, targetSize, targetSize);
     }
 
-    // 绘制模型
     ctx.drawImage(rawCanvas, 0, 0, 400, 400, 0, 0, targetSize, targetSize);
     renderTexture.destroy(true);
 
-    // 下载
     return new Promise((resolve) => {
       finalCanvas.toBlob((blob) => {
         if (blob) {
@@ -113,41 +112,26 @@ const SaveButton = memo(function SaveButton({
       if (onReload) onReload();
       await new Promise(r => setTimeout(r, 1000));
 
-      // 1. 保存 Idle (无动作名)
       if (signal.aborted) throw new Error("Cancelled");
       setBatchProgress({ current: 1, total: totalSteps, currentName: 'Standard (Idle)' });
 
       const idleFileName = getFileName(null, null);
       await captureAndDownload(idleFileName);
 
-      // 2. 循环保存动作
       for (let i = 0; i < motionGroups.length; i++) {
         if (signal.aborted) throw new Error("Cancelled");
-
         const group = motionGroups[i];
 
-        setBatchProgress({
-          current: i + 2,
-          total: totalSteps,
-          currentName: group
-        });
-
-        // 播放动作
+        setBatchProgress({ current: i + 2, total: totalSteps, currentName: group });
         canvasRef.current.internalPlayMotion(group);
-
-        // 等待稳定
         await canvasRef.current.waitUntilStable(signal);
 
         if (signal.aborted) throw new Error("Cancelled");
-
-        // 生成带动作名的文件名
         const batchFileName = getFileName(group, null);
         await captureAndDownload(batchFileName);
       }
     } catch (error) {
-      if (error.message !== "Cancelled") {
-        console.error("Batch save error:", error);
-      }
+      if (error.message !== "Cancelled") console.error("Batch save error:", error);
     } finally {
       setIsBatching(false);
       if (onBatchStatusChange) onBatchStatusChange(false);
@@ -157,16 +141,13 @@ const SaveButton = memo(function SaveButton({
   };
 
   const cancelBatch = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
   };
 
   const isDisabled = !modelData || !selectedModel;
 
   return (
     <div className="space-y-5">
-      {/* 1. 背景颜色选择 */}
       <div className="space-y-2">
         <div className={`flex gap-2 p-1 transition-opacity ${isBatching ? 'opacity-50 pointer-events-none' : ''}`}>
           {BACKGROUND_OPTIONS.map((option) => (
@@ -184,9 +165,7 @@ const SaveButton = memo(function SaveButton({
         </div>
       </div>
 
-      {/* 2. 尺寸与命名设置 (合并在一行或分行) */}
       <div className="space-y-3">
-        {/* 自定义文件名输入 */}
         <div className="relative">
           <Input
             value={customName}
@@ -198,7 +177,6 @@ const SaveButton = memo(function SaveButton({
           <Pencil className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         </div>
 
-        {/* 分辨率选择 */}
         <Select onValueChange={setImageSize} value={imageSize} disabled={isBatching}>
           <SelectTrigger className="w-full h-11 rounded-xl bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-[#E5004F]/50 focus:ring-[#E5004F]/20 focus:border-[#E5004F] transition-all duration-300">
             <div className="flex items-center gap-2.5">
@@ -213,7 +191,6 @@ const SaveButton = memo(function SaveButton({
         </Select>
       </div>
 
-      {/* 3. 操作按钮区 */}
       <div className="space-y-3 pt-2">
         <Button
           className={`w-full h-12 rounded-full font-bold text-base tracking-wide shadow-lg transition-all duration-300 transform active:scale-95 ${isDisabled || isBatching ? "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-[#E5004F] to-[#ff4785] hover:shadow-[#E5004F]/40 hover:-translate-y-0.5 text-white"}`}
@@ -247,24 +224,10 @@ const SaveButton = memo(function SaveButton({
               <span>{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
             </div>
             <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#E5004F] transition-all duration-500 ease-out"
-                style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
-              ></div>
+              <div className="h-full bg-[#E5004F] transition-all duration-500 ease-out" style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}></div>
             </div>
-            <div className="text-[10px] text-center text-muted-foreground truncate px-1">
-              当前: {batchProgress.currentName}
-            </div>
-
-            <Button
-              variant="destructive"
-              size="sm"
-              className="w-full h-8 rounded-lg text-xs"
-              onClick={cancelBatch}
-            >
-              <StopCircle className="w-3 h-3 mr-1.5" />
-              停止生成差分
-            </Button>
+            <div className="text-[10px] text-center text-muted-foreground truncate px-1">当前: {batchProgress.currentName}</div>
+            <Button variant="destructive" size="sm" className="w-full h-8 rounded-lg text-xs" onClick={cancelBatch}> <StopCircle className="w-3 h-3 mr-1.5" /> 停止生成差分 </Button>
           </div>
         )}
       </div>
