@@ -8,8 +8,8 @@ import { MotionSelect } from "./components/MotionSelect";
 import { ExpressionSelect } from "./components/ExpressionSelect";
 import { SaveButton } from "./components/SaveButton";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-// 引入 Skull 图标
-import { Star, Settings, Moon, Sun, Download, Plus, Trash2, Layers, Move, Sparkles, RotateCcw, Skull } from "lucide-react";
+// 引入 Skull, Shuffle, Shirt 图标
+import { Star, Settings, Moon, Sun, Download, Plus, Trash2, Layers, Move, Sparkles, RotateCcw, Skull, Shuffle, Shirt } from "lucide-react";
 
 // SimpleSlider 组件
 const SimpleSlider = ({ value, min, max, step, onChange, label, disabled, defaultValue }) => (
@@ -64,11 +64,14 @@ export default function Home() {
       motion: null,
       expression: null,
       borrowedModelId: null,
+      borrowedCharId: null,
+      isBorrowingMotion: false,
       x: 0,
       y: 0,
       scale: 0.25,
       isModified: false,
-      isHeadless: false, // 初始化状态
+      isHeadless: false,
+      isBodyless: false,
       isVisible: true
     }
   ]);
@@ -109,11 +112,14 @@ export default function Home() {
       motion: null,
       expression: null,
       borrowedModelId: null,
+      borrowedCharId: null,
+      isBorrowingMotion: false,
       x: 0,
       y: 0,
       scale: 0.25,
       isModified: false,
       isHeadless: false,
+      isBodyless: false,
       isVisible: true
     };
     setModels(prev => [...prev, newModel]);
@@ -138,7 +144,9 @@ export default function Home() {
       modelData: null,
       motion: null,
       expression: null,
-      borrowedModelId: null
+      borrowedModelId: null,
+      borrowedCharId: null,
+      isBorrowingMotion: false
     });
   }, [updateActiveModel]);
 
@@ -148,7 +156,7 @@ export default function Home() {
       modelData: null,
       motion: null,
       expression: null,
-      borrowedModelId: null
+      borrowedModelId: null,
     });
   }, [updateActiveModel]);
 
@@ -163,7 +171,7 @@ export default function Home() {
   // 动作覆盖逻辑
   const handleMotionOverride = useCallback(async (sourceCharId, sourceModelId) => {
     if (!sourceCharId || !sourceModelId) {
-      updateActiveModel({ customModelData: null, motion: null, borrowedModelId: null });
+      updateActiveModel({ customModelData: null, motion: null, borrowedModelId: null, borrowedCharId: null });
       return;
     }
     try {
@@ -212,13 +220,25 @@ export default function Home() {
         customModelData: hybridModelData,
         modelData: hybridModelData,
         motion: null,
-        borrowedModelId: sourceModelId
+        borrowedModelId: sourceModelId,
+        borrowedCharId: sourceCharId
       });
-      console.log(`Motion override applied: ${sourceModelId} -> ${currentModelId}`);
     } catch (error) {
       console.error("Motion override failed:", error);
     }
   }, [activeModel.modelId, activeModel.isModified, updateActiveModel]);
+
+  const handleBorrowingToggle = useCallback(() => {
+    const newState = !activeModel.isBorrowingMotion;
+    updateActiveModel({ isBorrowingMotion: newState });
+    if (!newState) {
+      handleMotionOverride(null, null);
+    }
+  }, [activeModel.isBorrowingMotion, updateActiveModel, handleMotionOverride]);
+
+  const handleSourceCharChange = useCallback((charId) => {
+    updateActiveModel({ borrowedCharId: charId, borrowedModelId: null });
+  }, [updateActiveModel]);
 
   const handleExpressionSelect = useCallback((value) => {
     updateActiveModel({ expression: value === "none" ? null : value });
@@ -244,7 +264,9 @@ export default function Home() {
       modelData: null,
       motion: null,
       expression: null,
-      borrowedModelId: null
+      borrowedModelId: null,
+      borrowedCharId: null,
+      isBorrowingMotion: false
     });
   }, [updateActiveModel]);
 
@@ -252,6 +274,11 @@ export default function Home() {
   const handleHeadlessChange = useCallback(() => {
     updateActiveModel({ isHeadless: !activeModel.isHeadless });
   }, [activeModel.isHeadless, updateActiveModel]);
+
+  // 处理去身开关
+  const handleBodylessChange = useCallback(() => {
+    updateActiveModel({ isBodyless: !activeModel.isBodyless });
+  }, [activeModel.isBodyless, updateActiveModel]);
 
   const BRAND_PINK = "#E5004F";
 
@@ -301,6 +328,7 @@ export default function Home() {
                         {model.isModified && <span className="ml-1 text-[10px] text-[#E5004F]">(M)</span>}
                         {model.borrowedModelId && <span className="ml-1 text-[10px] text-blue-500">+{model.borrowedModelId}</span>}
                         {model.isHeadless && <span className="ml-1 text-[10px] text-purple-500">(H)</span>}
+                        {model.isBodyless && <span className="ml-1 text-[10px] text-blue-500">(B)</span>}
                       </span>
                     </div>
                     {models.length > 1 && (
@@ -328,12 +356,18 @@ export default function Home() {
 
                 <div className="control-group">
                   <div className="flex items-center justify-between px-1 mb-1.5">
-                    <label className="text-xs font-bold text-gray-400 uppercase">Costume Settings</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase">Costume</label>
                     <div className="flex items-center gap-2">
-                      {/* 去头开关 */}
-                      <button onClick={() => !isBatching && handleHeadlessChange()} disabled={isBatching} className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isHeadless ? 'text-purple-500 drop-shadow-sm' : 'text-gray-300 dark:text-gray-600 hover:text-gray-400'} ${isBatching ? 'opacity-50 cursor-not-allowed' : ''}`} title={activeModel.isHeadless ? "显示头部" : "隐藏头部 (仅适用新画风)"}>
+                      {/* 去身开关 */}
+                      <button onClick={() => !isBatching && handleBodylessChange()} disabled={isBatching} className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isBodyless ? 'text-purple-500 drop-shadow-sm' : 'text-gray-300 dark:text-gray-600 hover:text-gray-400'} ${isBatching ? 'opacity-50 cursor-not-allowed' : ''}`} title={activeModel.isBodyless ? "显示身体" : "隐藏身体"}>
                         <Skull className="w-3.5 h-3.5" strokeWidth={2.5} />
                       </button>
+
+                      {/* 去头开关 */}
+                      <button onClick={() => !isBatching && handleHeadlessChange()} disabled={isBatching} className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isHeadless ? 'text-blue-500 drop-shadow-sm' : 'text-gray-300 dark:text-gray-600 hover:text-gray-400'} ${isBatching ? 'opacity-50 cursor-not-allowed' : ''}`} title={activeModel.isHeadless ? "显示头部" : "隐藏头部 (仅适用新画风)"}>
+                        <Shirt className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      </button>
+
                       <span className="text-gray-200 dark:text-gray-700">|</span>
                       {/* 改模开关 */}
                       <button onClick={() => !isBatching && handleModifiedChange(!activeModel.isModified)} disabled={isBatching} className={`transition-all duration-300 transform active:scale-95 ${activeModel.isModified ? 'text-[#E5004F] drop-shadow-sm' : 'text-gray-300 dark:text-gray-600 hover:text-gray-400'} ${isBatching ? 'opacity-50 cursor-not-allowed' : ''}`} title={activeModel.isModified ? "禁用改模" : "启用改模"}>
@@ -345,13 +379,27 @@ export default function Home() {
                 </div>
 
                 <div className="control-group">
-                  <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">Motion</label>
+                  <div className="flex items-center justify-between px-1 mb-1.5">
+                    <label className="text-xs font-bold text-gray-400 uppercase">Motion</label>
+                    <button
+                      onClick={() => !isBatching && handleBorrowingToggle()}
+                      disabled={isBatching}
+                      className={`transition-all duration-300 transform active:scale-95 ${activeModel.isBorrowingMotion ? 'text-[#E5004F] drop-shadow-sm' : 'text-gray-300 dark:text-gray-600 hover:text-gray-400'} ${isBatching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={activeModel.isBorrowingMotion ? "关闭动作借用" : "借用其他模型的动作"}
+                    >
+                      <Shuffle className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                   <MotionSelect
                     modelData={activeModel.modelData}
                     onSelect={handleMotionSelect}
                     value={activeModel.motion}
                     disabled={isBatching}
                     onMotionOverride={handleMotionOverride}
+                    isBorrowing={activeModel.isBorrowingMotion}
+                    borrowedCharId={activeModel.borrowedCharId}
+                    borrowedModelId={activeModel.borrowedModelId}
+                    onSourceCharChange={handleSourceCharChange}
                   />
                 </div>
 
@@ -363,9 +411,9 @@ export default function Home() {
                 {activeModel.modelId && (
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
                     <div className="flex items-center gap-2 mb-2"> <Move className="w-4 h-4 text-[#E5004F]" /> <span className="text-xs font-bold text-gray-400 uppercase">Transform</span> </div>
-                    <SimpleSlider label="X Offset" min={-400} max={400} step={1} value={activeModel.x} onChange={(v) => handleTransformChange('x', v)} disabled={isBatching} defaultValue={0} />
-                    <SimpleSlider label="Y Offset" min={-400} max={400} step={1} value={activeModel.y} onChange={(v) => handleTransformChange('y', v)} disabled={isBatching} defaultValue={0} />
-                    <SimpleSlider label="Scale" min={0.1} max={1.0} step={0.05} value={activeModel.scale} onChange={(v) => handleTransformChange('scale', v)} disabled={isBatching} defaultValue={0.25} />
+                    <SimpleSlider label="X Offset" min={-400} max={400} step={5} value={activeModel.x} onChange={(v) => handleTransformChange('x', v)} disabled={isBatching} defaultValue={0} />
+                    <SimpleSlider label="Y Offset" min={-400} max={400} step={5} value={activeModel.y} onChange={(v) => handleTransformChange('y', v)} disabled={isBatching} defaultValue={0} />
+                    <SimpleSlider label="Scale" min={0.1} max={0.7} step={0.05} value={activeModel.scale} onChange={(v) => handleTransformChange('scale', v)} disabled={isBatching} defaultValue={0.25} />
                   </div>
                 )}
               </div>

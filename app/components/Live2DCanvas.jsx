@@ -158,8 +158,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
 
       for (let i = 0; i < models.length; i++) {
         if (isCancelled) break;
-        // 增加 isHeadless 属性解构
-        const { id, modelId, motion, expression, x, y, scale, reloadKey, isModified, customModelData, isHeadless } = models[i];
+        const { id, modelId, motion, expression, x, y, scale, reloadKey, isModified, customModelData, isHeadless, isBodyless } = models[i];
         if (!modelId) continue;
 
         const prevConfig = prevModels.find(m => m.id === id);
@@ -170,7 +169,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
           (prevConfig?.isModified !== isModified) ||
           (prevConfig?.reloadKey !== reloadKey) ||
           (prevConfig?.customModelData !== customModelData) ||
-          (prevConfig?.isHeadless !== isHeadless); // 监听 isHeadless 变化
+          (prevConfig?.isHeadless !== isHeadless) ||
+          (prevConfig?.isBodyless !== isBodyless);
 
         const currentScale = scale || 0.25;
         const dynamicOffset = ((currentScale - 0.25) / 0.05) * -50;
@@ -185,9 +185,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
             const ModelClass = live2dDisplayRef.current.Live2DModel;
             let data;
 
-            // 1. 获取数据 (无论是 Fetch 还是 Custom)
+            // 1. 获取数据
             if (customModelData) {
-              // 深度拷贝以防修改原对象
               data = JSON.parse(JSON.stringify(customModelData));
             } else {
               const modelPath = isModified ? `/api/charam/${modelId}/buildData.asset` : `/api/chara/${modelId}/buildData.asset`;
@@ -197,23 +196,23 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
               if (!response.ok) throw new Error("Fetch failed");
               data = await response.json();
               data.url = modelUrl;
-
-              // 【重要修复】这里绝对不能调用 onModelLoad，否则会触发死循环
             }
 
             if (isCancelled) return;
 
-            // 2. 处理“去头”逻辑 (Headless Mode)
-            console.log(`Model ${modelId} isHeadless: ${isHeadless}`);
-            if (isHeadless && data.textures && Array.isArray(data.textures)) {
+            // 2. 处理“去头”和“去身”逻辑
+            if ((isHeadless || isBodyless) && data.textures && Array.isArray(data.textures)) {
               const hasTex00 = data.textures.some(t => t.includes('texture_00.png'));
               const hasTex01 = data.textures.some(t => t.includes('texture_01.png'));
-              console.log(`[Live2D] Headless mode check for ${modelId}: hasTex00=${hasTex00}, hasTex01=${hasTex01}`);
+
               if (hasTex00 && hasTex01) {
-                console.log(`[Live2D] Applying Headless mode for ${modelId}`);
                 data.textures = data.textures.map(t => {
-                  if (t.includes('texture_00.png')) {
-                    // 将 texture_00 (通常是头部) 替换为通用空/透明资源
+                  if (isHeadless && t.includes('texture_00.png')) {
+                    // 将 texture_00 (头部) 替换为通用空资源
+                    return '../../chara/000_general/texture_00.png';
+                  }
+                  if (isBodyless && t.includes('texture_01.png')) {
+                    // 将 texture_01 (身体) 替换为通用空资源
                     return '../../chara/000_general/texture_00.png';
                   }
                   return t;
@@ -227,14 +226,13 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
             if (isCancelled) { newModel.destroy(); return; }
 
             appRef.current.stage.addChild(newModel);
-            modelInstancesRef.current[id] = newModel; // 必须先注册实例
+            modelInstancesRef.current[id] = newModel;
             instance = newModel;
 
             instance.scale.set(currentScale);
             instance.x = baseX + (x || 0);
             instance.y = baseY + (y || 0);
 
-            // 【重要修复】实例注册完成后，再调用回调，这样下次渲染时 !instance 为 false
             if (!isCancelled && onModelLoad) {
               onModelLoad(data);
             }
