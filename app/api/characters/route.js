@@ -69,7 +69,7 @@ const characters = [
     { id: 227, name: "227 月之森理事长", category: ["其他"] },
     { id: 228, name: "228 夏洛特·露易丝·三园", category: ["家人朋友"] },
     { id: 229, name: "229 纯田真奈", category: ["Sumimi"] },
-    // { id: 301, name: "301 鹈泽莉依", category: ["Glitter*Green"] },
+    { id: 301, name: "301 鹈泽莉依", category: ["Glitter*Green"] },
     { id: 302, name: "302 牛込百合", category: ["Glitter*Green", "家人朋友"] },
     { id: 303, name: "303 Hanne", category: ["家人朋友"] },
     { id: 304, name: "304 海野夏希", category: ["CHiSPA"] },
@@ -124,6 +124,7 @@ const characters = [
     { id: 501, name: "501 MASKING&PAREO", category: ["其他"] },
     { id: 502, name: "502 宇田川亚子&白金燐子&LOCK", category: ["其他"] },
     { id: 601, name: "601 奥泽美咲", category: ["其他"] },
+    { id: 999, name: "999 备用", category: ["其他"] },
 ];
 
 export async function GET(request) {

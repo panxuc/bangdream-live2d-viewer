@@ -102,7 +102,7 @@ export default function Home() {
   }, [activeModelId]);
 
   const handleAddModel = () => {
-    if (models.length >= 6) return;
+    if (models.length >= 10) return;
     const newId = `model-${Date.now()}`;
     const newModel = {
       id: newId,
@@ -315,21 +315,23 @@ export default function Home() {
           <div className="lg:sticky lg:top-28 space-y-6">
             <div className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 rounded-2xl p-4 shadow-xl">
               <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-2"> <Layers className="w-4 h-4 text-[#E5004F]" /> <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">图层列表 ({models.length}/6)</h3> </div>
-                <button onClick={handleAddModel} disabled={models.length >= 6 || isBatching} className={`p-1.5 rounded-lg transition-all ${models.length >= 6 || isBatching ? 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500' : 'bg-[#E5004F]/10 text-[#E5004F] hover:bg-[#E5004F] hover:text-white'}`} title={models.length >= 6 ? "已达到最大图层数" : "添加模型"}> <Plus className="w-4 h-4" /> </button>
+                <div className="flex items-center gap-2"> <Layers className="w-4 h-4 text-[#E5004F]" /> <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">图层列表 ({models.length}/10)</h3> </div>
+                <button onClick={handleAddModel} disabled={models.length >= 10 || isBatching} className={`p-1.5 rounded-lg transition-all ${models.length >= 10 || isBatching ? 'bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-700 dark:text-gray-500' : 'bg-[#E5004F]/10 text-[#E5004F] hover:bg-[#E5004F] hover:text-white'}`} title={models.length >= 10 ? "已达到最大图层数" : "添加模型"}> <Plus className="w-4 h-4" /> </button>
               </div>
               <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
                 {models.map((model, index) => (
                   <div key={model.id} onClick={() => !isBatching && setActiveModelId(model.id)} className={`flex items-center justify-between p-2 rounded-lg text-sm transition-all group ${isBatching ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'} ${model.id === activeModelId ? 'bg-white dark:bg-gray-800 border-[#E5004F] shadow-sm border' : 'border border-transparent hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
-                    <div className="flex items-center gap-2 truncate">
-                      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500">{index + 1}</span>
+                    <div className="flex items-center gap-2 truncate flex-1">
+                      <span className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500 flex-shrink-0">{index + 1}</span>
                       <span className="truncate font-medium text-gray-700 dark:text-gray-300">
-                        {model.modelId ? model.modelId : (model.characterId ? `Chara ${model.characterId}` : 'Empty Slot')}
-                        {model.isModified && <span className="ml-1 text-[10px] text-[#E5004F]">(M)</span>}
-                        {model.borrowedModelId && <span className="ml-1 text-[10px] text-blue-500">+{model.borrowedModelId}</span>}
-                        {model.isHeadless && <span className="ml-1 text-[10px] text-purple-500">(H)</span>}
-                        {model.isBodyless && <span className="ml-1 text-[10px] text-blue-500">(B)</span>}
+                        {model.modelId ? model.modelId : (model.characterId ? `Chara ${model.characterId}` : 'Empty')}
                       </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {model.isModified && <span className="text-[10px] text-[#E5004F]"><Sparkles className="w-3 h-3" /></span>}
+                        {model.borrowedModelId && <span className="text-[10px] text-blue-500"><Shuffle className="w-3 h-3" /></span>}
+                        {model.isBodyless && <span className="text-[10px] text-purple-500"><Skull className="w-3 h-3" /></span>}
+                        {model.isHeadless && <span className="text-[10px] text-blue-500"><Shirt className="w-3 h-3" /></span>}
+                      </div>
                     </div>
                     {models.length > 1 && (
                       <button onClick={(e) => { e.stopPropagation(); handleRemoveModel(model.id); }} disabled={isBatching} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-transparent" title="删除图层"> <Trash2 className="w-3.5 h-3.5" /> </button>
