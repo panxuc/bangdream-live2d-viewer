@@ -38,9 +38,9 @@ const SaveButton = memo(function SaveButton({
 
     const parts = [clean(baseName)];
 
-    if (borrowedModelId) {
-      parts.push(clean(borrowedModelId));
-    }
+    // if (borrowedModelId) {
+    //   parts.push(clean(borrowedModelId));
+    // }
 
     if (motionGroup) parts.push(clean(motionGroup));
     if (expression) parts.push(clean(expression));
