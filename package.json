@@ -25,7 +25,7 @@
     "clsx": "^2.1.1",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
-    "lucide-react": "^0.552.0",
+    "lucide-react": "^0.562.0",
     "next": "16.0.10",
     "pixi-live2d-display": "file:./pixi-live2d-display",
     "pixi.js": "^6.5.10",
