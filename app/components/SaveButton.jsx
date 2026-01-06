@@ -59,9 +59,7 @@ const SaveButton = memo(function SaveButton({
     if (!app || !app.renderer) return;
 
     const targetSize = parseInt(imageSize);
-    const renderTexture = PIXI.RenderTexture.create({ width: 400, height: 400, resolution: 1 });
-    app.renderer.render(app.stage, renderTexture);
-    const rawCanvas = app.renderer.plugins.extract.canvas(renderTexture);
+    const rawCanvas = app.view;
 
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = targetSize;
@@ -74,7 +72,6 @@ const SaveButton = memo(function SaveButton({
     }
 
     ctx.drawImage(rawCanvas, 0, 0, 400, 400, 0, 0, targetSize, targetSize);
-    renderTexture.destroy(true);
 
     return new Promise((resolve) => {
       finalCanvas.toBlob((blob) => {

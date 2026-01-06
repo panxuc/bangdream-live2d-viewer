@@ -104,32 +104,34 @@ export class Asset2JsonConverter {
   }
 
   static process_file(data, currentPath) {
+    let base_data = {};
     // 使用 Optional Chaining 简化检查
     if (!data?.Base) {
-      throw new Error('Invalid data format: missing Base object');
+      base_data = { ...data };
     }
+    else {
+      // 浅拷贝 Base 对象，避免直接修改原始 data (Immutability 建议)
+      base_data = { ...data.Base };
 
-    // 浅拷贝 Base 对象，避免直接修改原始 data (Immutability 建议)
-    const base_data = { ...data.Base };
+      // 1. 处理基础属性 (Model, Physics, Textures)
+      if (base_data.model) {
+        base_data.model = this.process_common_items(base_data.model, currentPath);
+      }
+      if (base_data.physics) {
+        base_data.physics = this.process_common_items(base_data.physics, currentPath);
+      }
+      if (base_data.textures) {
+        // 传入 .png 后缀需求
+        base_data.textures = this.process_common_items(base_data.textures, currentPath, '.png');
+      }
 
-    // 1. 处理基础属性 (Model, Physics, Textures)
-    if (base_data.model) {
-      base_data.model = this.process_common_items(base_data.model, currentPath);
-    }
-    if (base_data.physics) {
-      base_data.physics = this.process_common_items(base_data.physics, currentPath);
-    }
-    if (base_data.textures) {
-      // 传入 .png 后缀需求
-      base_data.textures = this.process_common_items(base_data.textures, currentPath, '.png');
-    }
-
-    // 2. 处理复杂属性 (Motions, Expressions)
-    if (base_data.motions) {
-      base_data.motions = this.process_motions(base_data.motions, currentPath);
-    }
-    if (base_data.expressions) {
-      base_data.expressions = this.process_expressions(base_data.expressions, currentPath);
+      // 2. 处理复杂属性 (Motions, Expressions)
+      if (base_data.motions) {
+        base_data.motions = this.process_motions(base_data.motions, currentPath);
+      }
+      if (base_data.expressions) {
+        base_data.expressions = this.process_expressions(base_data.expressions, currentPath);
+      }
     }
 
     // 3. 清理无用字段
