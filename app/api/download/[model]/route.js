@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import JSZip from 'jszip';
-import { Asset2JsonConverter } from '../../chara/[model]/[...path]/route.js';
+import { Asset2JsonConverter } from "@/src/server/live2d/asset-converter";
+import { getLive2DBaseUrl } from "@/src/server/live2d/remote";
 
 async function downloadFile(url) {
   const response = await fetch(url);
@@ -86,8 +87,7 @@ export async function GET(request, context) {
   }
 
   try {
-    const branch = isModified ? 'live2d-modified' : 'live2d';
-    const baseUrl = `https://bangdreamr2.haneoka.org/${branch}/chara/${model}_rip/`;
+    const baseUrl = getLive2DBaseUrl({ isModified, model });
     const response = await fetch(baseUrl + 'buildData.asset');
 
     if (!response.ok) {
@@ -98,7 +98,7 @@ export async function GET(request, context) {
     }
 
     const data = await response.json();
-    const processedData = Asset2JsonConverter.process_file(data, model.replace('_rip', ''));
+    const processedData = Asset2JsonConverter.processFile(data, model.replace('_rip', ''));
     const finalData = processModelData(processedData);
 
     const zip = new JSZip();

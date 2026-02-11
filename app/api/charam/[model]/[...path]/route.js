@@ -1,50 +1,26 @@
-import { NextResponse } from 'next/server';
-import { Asset2JsonConverter } from '../../../chara/[model]/[...path]/route.js';
+import { NextResponse } from "next/server";
+import { createLive2DAssetResponse } from "@/src/server/live2d/proxy-route";
 
-export async function GET(request, context) {
+export async function GET(_request, context) {
   const { model, path } = await context.params;
 
   if (!model) {
-    return NextResponse.json({ error: 'Model parameter is required' }, { status: 400 });
+    return NextResponse.json({ error: "Model parameter is required" }, { status: 400 });
   }
 
-  const filePath = path ? path.join('/') : '';
-  const currentPath = model.replace('_rip', '');
-  const fullUrl = `https://bangdreamr2.haneoka.org/live2d-modified/chara/${model}_rip/${filePath}`;
-
   try {
-    const response = await fetch(fullUrl);
+    const result = await createLive2DAssetResponse({ model, path, isModified: true });
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch data: ${response.status} ${response.statusText}` },
-        { status: response.status }
-      );
+    if (!result.ok) {
+      return NextResponse.json(result.body, { status: result.status });
     }
 
-    if (filePath === 'buildData.asset') {
-      const data = await response.json();
-      const processedData = Asset2JsonConverter.process_file(data, currentPath);
-      return NextResponse.json(processedData, {
-        headers: {
-          'Cache-Control': 'public, max-age=3600, s-maxage=86400'
-        }
-      });
+    if (result.isJson) {
+      return NextResponse.json(result.body, { headers: result.headers });
     }
 
-    const contentType = response.headers.get('content-type');
-    const buffer = await response.arrayBuffer();
-
-    return new NextResponse(buffer, {
-      headers: {
-        'content-type': contentType || 'application/octet-stream',
-        'Cache-Control': 'public, max-age=3600, s-maxage=86400'
-      },
-    });
+    return new NextResponse(result.body, { headers: result.headers });
   } catch (error) {
-    return NextResponse.json(
-      { error: `Failed to fetch data: ${error.message}` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: `Failed to fetch data: ${error.message}` }, { status: 500 });
   }
 }

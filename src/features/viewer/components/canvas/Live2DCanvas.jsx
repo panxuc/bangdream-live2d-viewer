@@ -6,10 +6,12 @@ import { Loader2, Music } from "lucide-react";
 
 let coreLoadPromise = null;
 const loadLive2DCore = () => { if (typeof window === 'undefined') return Promise.resolve(); if (coreLoadPromise) return coreLoadPromise; const scripts = ['/live2d.min.js', '/live2dcubismcore.min.js']; const loadScript = (src) => { return new Promise((resolve, reject) => { if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; } const script = document.createElement('script'); script.src = src; script.async = true; script.onload = resolve; script.onerror = reject; document.head.appendChild(script); }); }; coreLoadPromise = Promise.all(scripts.map(loadScript)).then(() => { }).catch(error => { coreLoadPromise = null; throw error; }); return coreLoadPromise; };
+const getModelApiBase = (modelId, isModified) => (isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`);
 
 const Live2DCanvas = forwardRef(function Live2DCanvas({
   models = [],
   onModelLoad,
+  onSyncComplete,
   backgroundColor = 'transparent',
 }, ref) {
   const canvasRef = useRef(null);
@@ -128,8 +130,9 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
       if (!live2dDisplayRef.current) { const { Live2DModel } = await import('pixi-live2d-display'); live2dDisplayRef.current = { Live2DModel }; }
       if (!appRef.current) {
         const app = new PIXI.Application({
-          view: canvasRef.current, width: 400, height: 400, backgroundAlpha: 0, antialias: true, resolution: 1, autoDensity: false, resizeTo: null, preserveDrawingBuffer: true
+          view: canvasRef.current, width: 400, height: 400, backgroundAlpha: 0, antialias: true, resolution: 1, autoDensity: false, resizeTo: null, preserveDrawingBuffer: false
         });
+        app.ticker.maxFPS = 30;
         app.stage.sortableChildren = true;
         appRef.current = app;
       }
@@ -146,6 +149,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
     let isCancelled = false;
 
     const syncModels = async () => {
+      const loadedModelPayloads = [];
+      const reloadedModelIds = [];
       const currentIds = new Set(models.map(m => m.id));
       Object.keys(modelInstancesRef.current).forEach(id => {
         if (!currentIds.has(id)) {
@@ -179,6 +184,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
 
         if (needsReload) {
           try {
+            reloadedModelIds.push(id);
             if (instance) { appRef.current.stage.removeChild(instance); instance.destroy({ children: true }); delete modelInstancesRef.current[id]; instance = null; }
             setLoadingStates(prev => ({ ...prev, [id]: 'Loading...' }));
 
@@ -189,8 +195,8 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
             if (customModelData) {
               data = JSON.parse(JSON.stringify(customModelData));
             } else {
-              const modelPath = isModified ? `/api/charam/${modelId}/buildData.asset` : `/api/chara/${modelId}/buildData.asset`;
-              const modelUrl = isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`;
+              const modelUrl = getModelApiBase(modelId, isModified);
+              const modelPath = `${modelUrl}buildData.asset`;
 
               const response = await fetch(modelPath);
               if (!response.ok) throw new Error("Fetch failed");
@@ -234,7 +240,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
             instance.y = baseY + (y || 0);
 
             if (!isCancelled && onModelLoad) {
-              onModelLoad(data);
+              loadedModelPayloads.push({ id, data });
             }
 
             setLoadingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
@@ -264,10 +270,18 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
           }
         }
       }
+
+      if (!isCancelled && onModelLoad && loadedModelPayloads.length > 0) {
+        loadedModelPayloads.forEach(({ id, data }) => onModelLoad(id, data));
+      }
+
+      if (!isCancelled && onSyncComplete) {
+        onSyncComplete({ reloadedModelIds });
+      }
     };
     syncModels();
     return () => { isCancelled = true; };
-  }, [models, onModelLoad]);
+  }, [models, onModelLoad, onSyncComplete]);
 
   const hasLoading = Object.values(loadingStates).some(v => v);
 

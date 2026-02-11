@@ -59,8 +59,6 @@ const SaveButton = memo(function SaveButton({
     if (!app || !app.renderer) return;
 
     const targetSize = parseInt(imageSize);
-    const rawCanvas = app.view;
-
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = targetSize;
     finalCanvas.height = targetSize;
@@ -71,7 +69,21 @@ const SaveButton = memo(function SaveButton({
       ctx.fillRect(0, 0, targetSize, targetSize);
     }
 
-    ctx.drawImage(rawCanvas, 0, 0, 400, 400, 0, 0, targetSize, targetSize);
+    // Snapshot exactly the currently visible canvas viewport.
+    const viewportWidth = app.renderer.width || 400;
+    const viewportHeight = app.renderer.height || 400;
+    const renderTexture = PIXI.RenderTexture.create({
+      width: viewportWidth,
+      height: viewportHeight,
+    });
+
+    try {
+      app.renderer.render(app.stage, { renderTexture, clear: true });
+      const extractedCanvas = app.renderer.plugins.extract.canvas(renderTexture);
+      ctx.drawImage(extractedCanvas, 0, 0, viewportWidth, viewportHeight, 0, 0, targetSize, targetSize);
+    } finally {
+      renderTexture.destroy(true);
+    }
 
     return new Promise((resolve) => {
       finalCanvas.toBlob((blob) => {
@@ -103,14 +115,14 @@ const SaveButton = memo(function SaveButton({
     const motionGroups = Object.keys(modelData.motions);
 
     const totalSteps = motionGroups.length + 1;
-    setBatchProgress({ current: 0, total: totalSteps, currentName: 'Initializing...' });
+    setBatchProgress({ current: 0, total: totalSteps, currentName: "初始化中..." });
 
     try {
       if (onReload) onReload();
       await new Promise(r => setTimeout(r, 1000));
 
       if (signal.aborted) throw new Error("Cancelled");
-      setBatchProgress({ current: 1, total: totalSteps, currentName: 'Standard (Idle)' });
+      setBatchProgress({ current: 1, total: totalSteps, currentName: "标准待机" });
 
       const idleFileName = getFileName(null, null);
       await captureAndDownload(idleFileName);
@@ -167,21 +179,21 @@ const SaveButton = memo(function SaveButton({
           <Input
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
-            placeholder={selectedModel || "Custom Name..."}
+            placeholder={selectedModel || "自定义文件名..."}
             disabled={isBatching || isDisabled}
-            className="pl-9 h-11 rounded-xl bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:border-[#E5004F] transition-all"
+            className="pl-9 h-11 rounded-xl bg-white/90 dark:bg-[#2a1d35]/70 border-[#E5004F]/20 dark:border-[#ff76a7]/25 focus:border-[#E5004F] transition-all"
           />
           <Pencil className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         </div>
 
         <Select onValueChange={setImageSize} value={imageSize} disabled={isBatching}>
-          <SelectTrigger className="w-full h-11 rounded-xl bg-white dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 hover:border-[#E5004F]/50 focus:ring-[#E5004F]/20 focus:border-[#E5004F] transition-all duration-300">
+          <SelectTrigger className="w-full h-11 rounded-xl bg-white/90 dark:bg-[#2a1d35]/70 border-[#E5004F]/20 dark:border-[#ff76a7]/25 hover:border-[#E5004F]/50 focus:ring-[#E5004F]/20 focus:border-[#E5004F] transition-all duration-300">
             <div className="flex items-center gap-2.5">
               <Scaling className="w-4 h-4 text-[#E5004F]" />
-              <SelectValue placeholder="Resolution" />
+              <SelectValue placeholder="分辨率" />
             </div>
           </SelectTrigger>
-          <SelectContent className="rounded-xl border-gray-100 dark:border-gray-800 shadow-xl bg-white/95 dark:bg-[#1a101f]/95 backdrop-blur-md">
+          <SelectContent className="rounded-xl border border-[#E5004F]/15 dark:border-[#ff76a7]/25 shadow-xl bg-white/95 dark:bg-[#1a101f]/95 backdrop-blur-md">
             <SelectItem value="200" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer"> <span className="font-medium">200px × 200px</span> <span className="ml-2 text-xs text-muted-foreground">(NGA)</span> </SelectItem>
             <SelectItem value="400" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer"> <span className="font-medium">400px × 400px</span> </SelectItem>
           </SelectContent>
@@ -190,7 +202,7 @@ const SaveButton = memo(function SaveButton({
 
       <div className="space-y-3 pt-2">
         <Button
-          className={`w-full h-12 rounded-full font-bold text-base tracking-wide shadow-lg transition-all duration-300 transform active:scale-95 ${isDisabled || isBatching ? "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-[#E5004F] to-[#ff4785] hover:shadow-[#E5004F]/40 hover:-translate-y-0.5 text-white"}`}
+          className={`w-full h-12 rounded-full font-bold text-base tracking-wide shadow-lg transition-all duration-300 transform active:scale-95 ${isDisabled || isBatching ? "bg-gray-200 dark:bg-gray-800 text-gray-400 cursor-not-allowed shadow-none" : "bg-gradient-to-r from-[#E5004F] via-[#ff4785] to-[#ff7a5c] hover:shadow-[#E5004F]/40 hover:-translate-y-0.5 text-white"}`}
           onClick={handleSave}
           disabled={isDisabled || isBatching}
         >
@@ -204,7 +216,7 @@ const SaveButton = memo(function SaveButton({
         {!isBatching ? (
           <Button
             variant="outline"
-            className={`w-full h-11 rounded-full border-dashed border-2 font-medium transition-all ${isDisabled ? "opacity-50 cursor-not-allowed" : "border-[#E5004F]/30 text-[#E5004F] hover:bg-[#E5004F]/5 hover:border-[#E5004F]"}`}
+            className={`w-full h-11 rounded-full border-dashed border-2 font-medium transition-all ${isDisabled ? "opacity-50 cursor-not-allowed" : "border-[#E5004F]/30 text-[#E5004F] bg-white/55 dark:bg-[#24162f]/55 hover:bg-[#E5004F]/5 hover:border-[#E5004F]"}`}
             onClick={handleBatchSave}
             disabled={isDisabled}
           >
@@ -212,11 +224,11 @@ const SaveButton = memo(function SaveButton({
             自动生成差分
           </Button>
         ) : (
-          <div className="bg-white/50 dark:bg-gray-800/50 rounded-xl p-3 border border-[#E5004F]/20 space-y-3 animate-in fade-in slide-in-from-top-2">
+          <div className="bg-white/50 dark:bg-[#24162f]/60 rounded-xl p-3 border border-[#E5004F]/20 space-y-3 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center justify-between text-xs font-bold text-[#E5004F]">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Processing... {batchProgress.current} / {batchProgress.total}</span>
+                <span>处理中... {batchProgress.current} / {batchProgress.total}</span>
               </div>
               <span>{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
             </div>
