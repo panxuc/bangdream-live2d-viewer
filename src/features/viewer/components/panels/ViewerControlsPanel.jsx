@@ -1,7 +1,7 @@
 "use client";
 
-import { CharacterSelect, ModelSelect, MotionSelect, ExpressionSelect, SimpleSlider } from "@/src/features/viewer/components/controls";
-import { Layers, Move, Plus, Settings, Shirt, Shuffle, Skull, Sparkles, Trash2 } from "lucide-react";
+import { CharacterSelect, ModelSelect, MotionSelect, ExpressionSelect, SimpleSlider, LocalModelUpload } from "@/src/features/viewer/components/controls";
+import { ChevronDown, ChevronUp, FolderOpen, Layers, Move, Plus, Settings, Shirt, Shuffle, Skull, Sparkles, Trash2, Wifi } from "lucide-react";
 
 export function ViewerControlsPanel({
   models,
@@ -10,12 +10,15 @@ export function ViewerControlsPanel({
   activeModelIndex,
   isBatching,
   isReloading,
+  isUploadingLocalModel,
   maxModels,
   setActiveModelId,
   handleAddModel,
   handleRemoveModel,
+  handleMoveModel,
   handleCharacterSelect,
   handleModelSelect,
+  handleModelSourceChange,
   handleModelReload,
   handleBodylessChange,
   handleHeadlessChange,
@@ -26,6 +29,9 @@ export function ViewerControlsPanel({
   handleSourceCharChange,
   handleExpressionSelect,
   handleTransformChange,
+  handleLocalArchiveUpload,
+  handleLocalModelPathSelect,
+  handleApplyLocalModel,
 }) {
   return (
     <div className="lg:sticky lg:top-28 space-y-6">
@@ -53,7 +59,15 @@ export function ViewerControlsPanel({
             >
               <div className="flex items-center gap-2 truncate flex-1">
                 <span className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-[10px] font-bold text-gray-500 flex-shrink-0">{index + 1}</span>
-                <span className="truncate font-medium text-gray-700 dark:text-gray-300">{model.modelId ? model.modelId : model.characterId ? `角色 ${model.characterId}` : "空图层"}</span>
+                <span className="truncate font-medium text-gray-700 dark:text-gray-300">
+                  {model.modelSource === "local" && model.localModelLabel
+                    ? model.localModelLabel
+                    : model.modelId
+                      ? model.modelId
+                      : model.characterId
+                        ? `角色 ${model.characterId}`
+                        : "空图层"}
+                </span>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   {model.isModified && (
                     <span className="text-[10px] text-[#E5004F]">
@@ -78,17 +92,41 @@ export function ViewerControlsPanel({
                 </div>
               </div>
               {models.length > 1 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRemoveModel(model.id);
-                  }}
-                  disabled={isBatching}
-                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-transparent"
-                  title="删除图层"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMoveModel(model.id, "up");
+                    }}
+                    disabled={isBatching || index === 0}
+                    className="p-1 text-gray-400 hover:text-[#E5004F] hover:bg-[#E5004F]/10 rounded-md transition-all disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+                    title="上移图层"
+                  >
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMoveModel(model.id, "down");
+                    }}
+                    disabled={isBatching || index === models.length - 1}
+                    className="p-1 text-gray-400 hover:text-[#E5004F] hover:bg-[#E5004F]/10 rounded-md transition-all disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+                    title="下移图层"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveModel(model.id);
+                    }}
+                    disabled={isBatching}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all disabled:opacity-30 disabled:hover:text-gray-400 disabled:hover:bg-transparent"
+                    title="删除图层"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
             </div>
           ))}
@@ -115,54 +153,108 @@ export function ViewerControlsPanel({
 
         <div className="space-y-5">
           <div className="control-group">
-            <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">角色</label>
-            <CharacterSelect onSelect={handleCharacterSelect} value={activeModel.characterId} disabled={isBatching} />
-          </div>
-
-          <div className="control-group">
-            <div className="flex items-center justify-between px-1 mb-1.5">
-              <label className="text-xs font-bold text-gray-400 uppercase">服装</label>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => !isBatching && handleBodylessChange()}
-                  disabled={isBatching}
-                  className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isBodyless ? "text-purple-500 drop-shadow-sm" : "text-gray-300 dark:text-gray-600 hover:text-gray-400"} ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
-                  title={activeModel.isBodyless ? "显示身体" : "隐藏身体"}
-                >
-                  <Skull className="w-3.5 h-3.5" strokeWidth={2.5} />
-                </button>
-
-                <button
-                  onClick={() => !isBatching && handleHeadlessChange()}
-                  disabled={isBatching}
-                  className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isHeadless ? "text-blue-500 drop-shadow-sm" : "text-gray-300 dark:text-gray-600 hover:text-gray-400"} ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
-                  title={activeModel.isHeadless ? "显示头部" : "隐藏头部 (仅适用新画风)"}
-                >
-                  <Shirt className="w-3.5 h-3.5" strokeWidth={2.5} />
-                </button>
-
-                <span className="text-gray-200 dark:text-gray-700">|</span>
-
-                <button
-                  onClick={() => !isBatching && handleModifiedChange(!activeModel.isModified)}
-                  disabled={isBatching}
-                  className={`transition-all duration-300 transform active:scale-95 ${activeModel.isModified ? "text-[#E5004F] drop-shadow-sm" : "text-gray-300 dark:text-gray-600 hover:text-gray-400"} ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
-                  title={activeModel.isModified ? "禁用改模" : "启用改模"}
-                >
-                  <Sparkles className="w-3.5 h-3.5" fill={activeModel.isModified ? "currentColor" : "none"} />
-                </button>
-              </div>
+            <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">模型来源</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => !isBatching && handleModelSourceChange("remote")}
+                disabled={isBatching}
+                className={`h-10 rounded-xl border text-xs font-semibold transition-all ${
+                  activeModel.modelSource === "remote"
+                    ? "border-[#E5004F] bg-[#E5004F]/10 text-[#E5004F]"
+                    : "border-[#E5004F]/20 text-gray-500 dark:text-gray-300 hover:border-[#E5004F]/50"
+                } ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Wifi className="w-3.5 h-3.5" />
+                  在线获取
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => !isBatching && handleModelSourceChange("local")}
+                disabled={isBatching}
+                className={`h-10 rounded-xl border text-xs font-semibold transition-all ${
+                  activeModel.modelSource === "local"
+                    ? "border-[#E5004F] bg-[#E5004F]/10 text-[#E5004F]"
+                    : "border-[#E5004F]/20 text-gray-500 dark:text-gray-300 hover:border-[#E5004F]/50"
+                } ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  本地上传
+                </span>
+              </button>
             </div>
-            <ModelSelect
-              characterId={activeModel.characterId}
-              onSelect={handleModelSelect}
-              isModified={activeModel.isModified}
-              value={activeModel.modelId}
-              onReload={handleModelReload}
-              disabled={isBatching}
-              isReloading={isReloading}
-            />
           </div>
+
+          {activeModel.modelSource === "remote" ? (
+            <>
+              <div className="control-group">
+                <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">角色</label>
+                <CharacterSelect onSelect={handleCharacterSelect} value={activeModel.characterId} disabled={isBatching} />
+              </div>
+
+              <div className="control-group">
+                <div className="flex items-center justify-between px-1 mb-1.5">
+                  <label className="text-xs font-bold text-gray-400 uppercase">服装</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => !isBatching && handleBodylessChange()}
+                      disabled={isBatching}
+                      className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isBodyless ? "text-purple-500 drop-shadow-sm" : "text-gray-300 dark:text-gray-600 hover:text-gray-400"} ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
+                      title={activeModel.isBodyless ? "显示身体" : "隐藏身体"}
+                    >
+                      <Skull className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </button>
+
+                    <button
+                      onClick={() => !isBatching && handleHeadlessChange()}
+                      disabled={isBatching}
+                      className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isHeadless ? "text-blue-500 drop-shadow-sm" : "text-gray-300 dark:text-gray-600 hover:text-gray-400"} ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
+                      title={activeModel.isHeadless ? "显示头部" : "隐藏头部 (仅适用新画风)"}
+                    >
+                      <Shirt className="w-3.5 h-3.5" strokeWidth={2.5} />
+                    </button>
+
+                    <span className="text-gray-200 dark:text-gray-700">|</span>
+
+                    <button
+                      onClick={() => !isBatching && handleModifiedChange(!activeModel.isModified)}
+                      disabled={isBatching}
+                      className={`transition-all duration-300 transform active:scale-95 ${activeModel.isModified ? "text-[#E5004F] drop-shadow-sm" : "text-gray-300 dark:text-gray-600 hover:text-gray-400"} ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
+                      title={activeModel.isModified ? "禁用改模" : "启用改模"}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" fill={activeModel.isModified ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+                </div>
+                <ModelSelect
+                  characterId={activeModel.characterId}
+                  onSelect={handleModelSelect}
+                  isModified={activeModel.isModified}
+                  value={activeModel.modelId}
+                  onReload={handleModelReload}
+                  disabled={isBatching}
+                  isReloading={isReloading}
+                />
+              </div>
+            </>
+          ) : (
+            <LocalModelUpload
+              disabled={isBatching}
+              isUploading={isUploadingLocalModel}
+              isReloading={isReloading}
+              localModelFileName={activeModel.localModelFileName}
+              localModelCandidates={activeModel.localModelCandidates}
+              localModelPath={activeModel.localModelPath}
+              localModelError={activeModel.localModelError}
+              onUploadArchive={handleLocalArchiveUpload}
+              onSelectModelPath={handleLocalModelPathSelect}
+              onApplyModel={handleApplyLocalModel}
+              onReload={handleModelReload}
+            />
+          )}
 
           <div className="control-group">
             <div className="flex items-center justify-between px-1 mb-1.5">
@@ -194,7 +286,7 @@ export function ViewerControlsPanel({
             <ExpressionSelect modelData={activeModel.modelData} onSelect={handleExpressionSelect} value={activeModel.expression} disabled={isBatching} />
           </div>
 
-          {activeModel.modelId && (
+          {(activeModel.modelSource === "local" ? !!activeModel.localModelData : !!activeModel.modelId) && (
             <div className="pt-4 border-t border-black/5 dark:border-white/10 space-y-3">
               <div className="flex items-center gap-2 mb-2">
                 <Move className="w-4 h-4 text-[#E5004F]" />

@@ -34,7 +34,7 @@ const SaveButton = memo(function SaveButton({
   const getFileName = useCallback((motionGroup, expression) => {
     const clean = (str) => str ? str.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '') : '';
 
-    const baseName = customName.trim() ? customName.trim() : selectedModel;
+    const baseName = customName.trim() ? customName.trim() : (selectedModel || "model");
 
     const parts = [clean(baseName)];
 
@@ -153,7 +153,11 @@ const SaveButton = memo(function SaveButton({
     if (abortControllerRef.current) abortControllerRef.current.abort();
   };
 
-  const isDisabled = !modelData || !selectedModel;
+  const hasCanvas = !!canvasRef?.current?.getApp?.();
+  const hasModelLoaded = !!modelData;
+  const isDisabled = !hasCanvas || !hasModelLoaded;
+  const motionGroups = modelData?.motions ? Object.keys(modelData.motions) : [];
+  const isBatchDisabled = isDisabled || motionGroups.length === 0;
 
   return (
     <div className="space-y-5">
@@ -216,9 +220,9 @@ const SaveButton = memo(function SaveButton({
         {!isBatching ? (
           <Button
             variant="outline"
-            className={`w-full h-11 rounded-full border-dashed border-2 font-medium transition-all ${isDisabled ? "opacity-50 cursor-not-allowed" : "border-[#E5004F]/30 text-[#E5004F] bg-white/55 dark:bg-[#24162f]/55 hover:bg-[#E5004F]/5 hover:border-[#E5004F]"}`}
+            className={`w-full h-11 rounded-full border-dashed border-2 font-medium transition-all ${isBatchDisabled ? "opacity-50 cursor-not-allowed" : "border-[#E5004F]/30 text-[#E5004F] bg-white/55 dark:bg-[#24162f]/55 hover:bg-[#E5004F]/5 hover:border-[#E5004F]"}`}
             onClick={handleBatchSave}
-            disabled={isDisabled}
+            disabled={isBatchDisabled}
           >
             <Layers className="w-4 h-4 mr-2" />
             自动生成差分

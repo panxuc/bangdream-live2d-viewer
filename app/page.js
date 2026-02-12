@@ -55,12 +55,15 @@ export default function Home() {
                 activeModelIndex={state.activeModelIndex}
                 isBatching={state.isBatching}
                 isReloading={state.isReloading}
+                isUploadingLocalModel={state.isUploadingLocalModel}
                 maxModels={MAX_MODELS}
                 setActiveModelId={state.setActiveModelId}
                 handleAddModel={state.handleAddModel}
                 handleRemoveModel={state.handleRemoveModel}
+                handleMoveModel={state.handleMoveModel}
                 handleCharacterSelect={state.handleCharacterSelect}
                 handleModelSelect={state.handleModelSelect}
+                handleModelSourceChange={state.handleModelSourceChange}
                 handleModelReload={state.handleModelReload}
                 handleBodylessChange={state.handleBodylessChange}
                 handleHeadlessChange={state.handleHeadlessChange}
@@ -71,6 +74,9 @@ export default function Home() {
                 handleSourceCharChange={state.handleSourceCharChange}
                 handleExpressionSelect={state.handleExpressionSelect}
                 handleTransformChange={state.handleTransformChange}
+                handleLocalArchiveUpload={state.handleLocalArchiveUpload}
+                handleLocalModelPathSelect={state.handleLocalModelPathSelect}
+                handleApplyLocalModel={state.handleApplyLocalModel}
               />
             ) : (
               <ViewerExportPanel
@@ -92,12 +98,15 @@ export default function Home() {
               activeModelIndex={state.activeModelIndex}
               isBatching={state.isBatching}
               isReloading={state.isReloading}
+              isUploadingLocalModel={state.isUploadingLocalModel}
               maxModels={MAX_MODELS}
               setActiveModelId={state.setActiveModelId}
               handleAddModel={state.handleAddModel}
               handleRemoveModel={state.handleRemoveModel}
+              handleMoveModel={state.handleMoveModel}
               handleCharacterSelect={state.handleCharacterSelect}
               handleModelSelect={state.handleModelSelect}
+              handleModelSourceChange={state.handleModelSourceChange}
               handleModelReload={state.handleModelReload}
               handleBodylessChange={state.handleBodylessChange}
               handleHeadlessChange={state.handleHeadlessChange}
@@ -108,6 +117,9 @@ export default function Home() {
               handleSourceCharChange={state.handleSourceCharChange}
               handleExpressionSelect={state.handleExpressionSelect}
               handleTransformChange={state.handleTransformChange}
+              handleLocalArchiveUpload={state.handleLocalArchiveUpload}
+              handleLocalModelPathSelect={state.handleLocalModelPathSelect}
+              handleApplyLocalModel={state.handleApplyLocalModel}
             />
 
             <ViewerStage

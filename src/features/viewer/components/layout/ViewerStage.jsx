@@ -3,7 +3,12 @@
 import { Live2DCanvas } from "@/src/features/viewer/components/canvas";
 
 export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, onSyncComplete }) {
-  const activeCount = models.filter((m) => m.modelId).length;
+  const activeCount = models.filter((model) => {
+    if (model.modelSource === "local") {
+      return !!model.localModelData;
+    }
+    return !!model.modelId;
+  }).length;
 
   return (
     <div className="flex flex-col items-center">

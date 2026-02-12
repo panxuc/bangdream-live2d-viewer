@@ -1,4 +1,10 @@
 export class Asset2JsonConverter {
+  static BYTES_EXTENSION = /\.bytes$/;
+
+  static LIVE2D_CHARA_PREFIX = "live2d/chara/";
+
+  static GENERAL_SUFFIX = "_general";
+
   static IGNORED_KEYS = new Set([
     "m_GameObject",
     "m_Enabled",
@@ -9,44 +15,75 @@ export class Asset2JsonConverter {
     "paramLoop",
   ]);
 
+  static isObject(value) {
+    return value !== null && typeof value === "object";
+  }
+
+  static getBundleBaseName(bundleName) {
+    return bundleName.substring(bundleName.lastIndexOf("/") + 1);
+  }
+
+  static getFileName(path) {
+    return path.substring(path.lastIndexOf("/") + 1);
+  }
+
+  static normalizeFileName(fileName) {
+    return fileName.replace(this.BYTES_EXTENSION, "");
+  }
+
+  static resolveBundledPath(bundleName, currentPath, fileName) {
+    if (!bundleName.startsWith(this.LIVE2D_CHARA_PREFIX)) {
+      return fileName;
+    }
+
+    const bundleBaseName = this.getBundleBaseName(bundleName);
+    const cleanBaseName = bundleBaseName.replace("_rip", "");
+
+    if (cleanBaseName.endsWith(this.GENERAL_SUFFIX)) {
+      return `../../chara/${bundleBaseName}/${fileName}`;
+    }
+
+    if (cleanBaseName !== currentPath) {
+      return `../${bundleBaseName}/${fileName}`;
+    }
+
+    return fileName;
+  }
+
+  static ensureSuffix(path, suffix) {
+    if (!suffix || path.endsWith(suffix)) {
+      return path;
+    }
+
+    return path + suffix;
+  }
+
   static processBundleFile(bundle, currentPath) {
     if (!bundle?.bundleName || !bundle?.fileName) return null;
 
     const { bundleName, fileName } = bundle;
-    let finalFileName = fileName.replace(/\.bytes$/, "");
+    const normalizedFile = this.normalizeFileName(fileName);
+    return this.resolveBundledPath(bundleName, currentPath, normalizedFile);
+  }
 
-    if (bundleName.startsWith("live2d/chara/")) {
-      const bundleBaseName = bundleName.substring(bundleName.lastIndexOf("/") + 1);
-      const cleanBaseName = bundleBaseName.replace("_rip", "");
-
-      if (cleanBaseName.endsWith("_general")) {
-        finalFileName = `../../chara/${bundleBaseName}/${finalFileName}`;
-      } else if (cleanBaseName !== currentPath) {
-        finalFileName = `../${bundleBaseName}/${finalFileName}`;
-      }
+  static processBundleObject(item, currentPath, suffix = "") {
+    if (!this.isObject(item)) {
+      return item;
     }
 
-    return finalFileName;
+    const path = this.processBundleFile(item, currentPath);
+    return path ? this.ensureSuffix(path, suffix) : null;
   }
 
   static processCommonItems(items, currentPath, suffix = "") {
     if (Array.isArray(items)) {
       return items
-        .map((item) => {
-          if (typeof item === "object") {
-            const path = this.processBundleFile(item, currentPath);
-            if (path && suffix && !path.endsWith(suffix)) {
-              return path + suffix;
-            }
-            return path;
-          }
-          return item;
-        })
+        .map((item) => this.processBundleObject(item, currentPath, suffix))
         .filter(Boolean);
     }
 
-    if (typeof items === "object") {
-      return this.processBundleFile(items, currentPath);
+    if (this.isObject(items)) {
+      return this.processBundleObject(items, currentPath, suffix);
     }
 
     return items;
@@ -56,10 +93,10 @@ export class Asset2JsonConverter {
     if (!Array.isArray(motions)) return {};
 
     const entries = motions.reduce((acc, item) => {
-      if (typeof item === "object") {
+      if (this.isObject(item)) {
         const path = this.processBundleFile(item, currentPath);
         if (path) {
-          const name = path.substring(path.lastIndexOf("/") + 1).replace(".mtn", "");
+          const name = this.getFileName(path).replace(".mtn", "");
           acc.push([name, [{ file: path }]]);
         }
       }
@@ -74,10 +111,10 @@ export class Asset2JsonConverter {
     if (!Array.isArray(expressions)) return [];
 
     const processed = expressions.reduce((acc, item) => {
-      if (typeof item === "object") {
+      if (this.isObject(item)) {
         const file = this.processBundleFile(item, currentPath);
         if (file) {
-          const name = file.substring(file.lastIndexOf("/") + 1).replace(".exp.json", "");
+          const name = this.getFileName(file).replace(".exp.json", "");
           acc.push({ name, file });
         }
       }

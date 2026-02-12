@@ -5,8 +5,180 @@ import * as PIXI from "pixi.js";
 import { Loader2, Music } from "lucide-react";
 
 let coreLoadPromise = null;
-const loadLive2DCore = () => { if (typeof window === 'undefined') return Promise.resolve(); if (coreLoadPromise) return coreLoadPromise; const scripts = ['/live2d.min.js', '/live2dcubismcore.min.js']; const loadScript = (src) => { return new Promise((resolve, reject) => { if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; } const script = document.createElement('script'); script.src = src; script.async = true; script.onload = resolve; script.onerror = reject; document.head.appendChild(script); }); }; coreLoadPromise = Promise.all(scripts.map(loadScript)).then(() => { }).catch(error => { coreLoadPromise = null; throw error; }); return coreLoadPromise; };
+const CANVAS_SIZE = 400;
+const DEFAULT_MODEL_SCALE = 0.25;
+const MODEL_MASK_TEXTURE = "../../chara/000_general/texture_00.png";
+const STABILITY_CHECK_INTERVAL = 50;
+const STABILITY_DURATION = 1500;
+const STABILITY_REQUIRED_CHECKS = STABILITY_DURATION / STABILITY_CHECK_INTERVAL;
+const STABILITY_PIXEL_DIFF_TOLERANCE = 10;
+const STABILITY_SCREEN_CHANGE_TOLERANCE = 0.001;
+const STABILITY_WARMUP_MS = 500;
+const STABILITY_TIMEOUT_MS = 20000;
+
+const loadScript = (src) =>
+  new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+const loadLive2DCore = () => {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (coreLoadPromise) return coreLoadPromise;
+
+  const scripts = ["/live2d.min.js", "/live2dcubismcore.min.js"];
+  coreLoadPromise = Promise.all(scripts.map(loadScript)).catch((error) => {
+    coreLoadPromise = null;
+    throw error;
+  });
+
+  return coreLoadPromise;
+};
+
 const getModelApiBase = (modelId, isModified) => (isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`);
+
+const safeRun = (fn) => {
+  try {
+    fn();
+  } catch {
+    // Ignore model-side runtime errors to keep canvas alive.
+  }
+};
+
+const getModelTransform = (scale = DEFAULT_MODEL_SCALE, x = 0, y = 0) => {
+  const currentScale = scale || DEFAULT_MODEL_SCALE;
+  const dynamicOffset = ((currentScale - DEFAULT_MODEL_SCALE) / 0.05) * -50;
+  const baseX = -50 + dynamicOffset;
+  const baseY = -25 + dynamicOffset;
+
+  return {
+    scale: currentScale,
+    x: baseX + x,
+    y: baseY + y,
+  };
+};
+
+const applyModelTransform = (instance, config) => {
+  const transform = getModelTransform(config.scale, config.x || 0, config.y || 0);
+  instance.scale.set(transform.scale);
+  instance.x = transform.x;
+  instance.y = transform.y;
+};
+
+const shouldReloadModel = (instance, prevConfig, nextConfig) =>
+  !instance ||
+  prevConfig?.modelSource !== nextConfig.modelSource ||
+  prevConfig?.modelId !== nextConfig.modelId ||
+  prevConfig?.isModified !== nextConfig.isModified ||
+  prevConfig?.reloadKey !== nextConfig.reloadKey ||
+  prevConfig?.customModelData !== nextConfig.customModelData ||
+  prevConfig?.localModelData !== nextConfig.localModelData ||
+  prevConfig?.isHeadless !== nextConfig.isHeadless ||
+  prevConfig?.isBodyless !== nextConfig.isBodyless;
+
+const removeModelInstance = (app, instance) => {
+  if (!instance || !app) return;
+
+  safeRun(() => {
+    app.stage.removeChild(instance);
+    instance.destroy({ children: true });
+  });
+};
+
+const patchMaskedTextures = (data, isHeadless, isBodyless) => {
+  if ((!isHeadless && !isBodyless) || !Array.isArray(data?.textures)) return;
+
+  const hasTex00 = data.textures.some((texture) => texture.includes("texture_00.png"));
+  const hasTex01 = data.textures.some((texture) => texture.includes("texture_01.png"));
+  if (!hasTex00 || !hasTex01) return;
+
+  data.textures = data.textures.map((texture) => {
+    if (isHeadless && texture.includes("texture_00.png")) return MODEL_MASK_TEXTURE;
+    if (isBodyless && texture.includes("texture_01.png")) return MODEL_MASK_TEXTURE;
+    return texture;
+  });
+};
+
+const waitCanvasStable = async (app, signal) =>
+  new Promise((resolve) => {
+    if (!app?.renderer) {
+      resolve();
+      return;
+    }
+
+    const gl = app.renderer.gl;
+    let lastPixels = null;
+    let stableFramesCount = 0;
+    let lastCheckTime = 0;
+
+    const cleanup = () => {
+      app.renderer.off("postrender", checkHandler);
+      clearTimeout(safetyTimeout);
+      clearTimeout(warmupTimeout);
+    };
+
+    const checkHandler = () => {
+      if (signal?.aborted) {
+        cleanup();
+        resolve();
+        return;
+      }
+
+      const now = performance.now();
+      if (now - lastCheckTime < STABILITY_CHECK_INTERVAL) return;
+      lastCheckTime = now;
+
+      const width = gl.drawingBufferWidth;
+      const height = gl.drawingBufferHeight;
+      if (width === 0 || height === 0) return;
+
+      const currentPixels = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, currentPixels);
+
+      if (lastPixels) {
+        let diffCount = 0;
+        const step = 32;
+
+        for (let i = 0; i < currentPixels.length; i += step) {
+          if (
+            Math.abs(currentPixels[i] - lastPixels[i]) > STABILITY_PIXEL_DIFF_TOLERANCE ||
+            Math.abs(currentPixels[i + 1] - lastPixels[i + 1]) > STABILITY_PIXEL_DIFF_TOLERANCE ||
+            Math.abs(currentPixels[i + 2] - lastPixels[i + 2]) > STABILITY_PIXEL_DIFF_TOLERANCE
+          ) {
+            diffCount++;
+          }
+        }
+
+        const changeRate = diffCount / (currentPixels.length / step);
+        stableFramesCount = changeRate < STABILITY_SCREEN_CHANGE_TOLERANCE ? stableFramesCount + 1 : 0;
+
+        if (stableFramesCount >= STABILITY_REQUIRED_CHECKS) {
+          cleanup();
+          resolve();
+        }
+      }
+
+      lastPixels = new Uint8Array(currentPixels);
+    };
+
+    const warmupTimeout = setTimeout(() => {
+      app.renderer.on("postrender", checkHandler);
+    }, STABILITY_WARMUP_MS);
+
+    const safetyTimeout = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, STABILITY_TIMEOUT_MS);
+  });
 
 const Live2DCanvas = forwardRef(function Live2DCanvas({
   models = [],
@@ -22,123 +194,85 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
   const prevModelsRef = useRef([]);
   const [loadingStates, setLoadingStates] = useState({});
 
+  const setModelLoading = (id, state) => {
+    setLoadingStates((prev) => {
+      if (!state) {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+
+      return { ...prev, [id]: state };
+    });
+  };
+
   useImperativeHandle(ref, () => ({
     getApp: () => appRef.current,
     getModels: () => Object.values(modelInstancesRef.current),
     getModel: () => Object.values(modelInstancesRef.current)[0],
-    internalPlayMotion: (group) => { Object.values(modelInstancesRef.current).forEach(m => { try { m?.internalModel?.motionManager?.stopAllMotions(); m?.motion(group, 0, 3); } catch (e) { } }); },
-    internalReset: () => { Object.values(modelInstancesRef.current).forEach(m => { try { m?.internalModel?.motionManager?.stopAllMotions(); m?.expression(null); } catch (e) { } }); },
-    waitUntilStable: async (signal) => {
-      return new Promise((resolve) => {
-        if (!appRef.current || !appRef.current.renderer) { resolve(); return; }
-        const app = appRef.current;
-        const gl = app.renderer.gl;
-
-        let lastPixels = null;
-        let stableFramesCount = 0;
-        let lastCheckTime = 0;
-
-        // 参数配置
-        const CHECK_INTERVAL = 50;      // 每 50ms 采样一次（渲染循环中）
-        const STABLE_DURATION = 1500;   // 需要连续稳定 1.5 秒
-        const REQUIRED_STABLE_CHECKS = STABLE_DURATION / CHECK_INTERVAL;
-        const PIXEL_DIFF_TOLERANCE = 10;
-        const SCREEN_CHANGE_TOLERANCE = 0.001; // 0.1% 的像素变化视为静止
-
-        // 检测函数：在渲染循环的 postrender 阶段调用
-        const checkHandler = () => {
-          if (signal && signal.aborted) {
-            cleanup();
-            resolve();
-            return;
-          }
-
-          const now = performance.now();
-          if (now - lastCheckTime < CHECK_INTERVAL) return;
-          lastCheckTime = now;
-
-          // 此时 Drawing Buffer 是最新的，且包含内容
-          const width = gl.drawingBufferWidth;
-          const height = gl.drawingBufferHeight;
-
-          // 如果 Buffer 尺寸异常，跳过
-          if (width === 0 || height === 0) return;
-
-          const pixelCount = width * height;
-          // 注意：readPixels 比较耗时，但在 postrender 中读取是唯一准确且不闪烁的方法
-          const currentPixels = new Uint8Array(pixelCount * 4);
-          gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, currentPixels);
-
-          if (lastPixels) {
-            let diffCount = 0;
-            // 降采样步长，提高性能
-            const step = 32;
-
-            for (let i = 0; i < currentPixels.length; i += step) {
-              // 比较 R, G, B (忽略 Alpha，避免透明背景干扰)
-              if (Math.abs(currentPixels[i] - lastPixels[i]) > PIXEL_DIFF_TOLERANCE ||
-                Math.abs(currentPixels[i + 1] - lastPixels[i + 1]) > PIXEL_DIFF_TOLERANCE ||
-                Math.abs(currentPixels[i + 2] - lastPixels[i + 2]) > PIXEL_DIFF_TOLERANCE) {
-                diffCount++;
-              }
-            }
-
-            // 计算变化率 (注意要除以实际采样的点数)
-            const changeRate = diffCount / (currentPixels.length / step);
-
-            if (changeRate < SCREEN_CHANGE_TOLERANCE) {
-              stableFramesCount++;
-            } else {
-              stableFramesCount = 0; // 一旦动了，重置计数
-            }
-
-            if (stableFramesCount >= REQUIRED_STABLE_CHECKS) {
-              cleanup();
-              resolve();
-            }
-          }
-
-          // 保存当前帧（拷贝是必须的，因为 Uint8Array 是引用）
-          lastPixels = new Uint8Array(currentPixels);
-        };
-
-        const cleanup = () => {
-          app.renderer.off('postrender', checkHandler);
-          clearTimeout(safetyTimeout);
-          clearTimeout(warmupTimeout);
-        };
-
-        // 1. 预热：动作刚触发时，先等待 500ms 确保动作已经开始渲染
-        const warmupTimeout = setTimeout(() => {
-          // 2. 开始挂载检测钩子
-          app.renderer.on('postrender', checkHandler);
-        }, 500);
-
-        // 3. 安全兜底：如果 20 秒还没停，强制结束
-        const safetyTimeout = setTimeout(() => {
-          cleanup();
-          resolve();
-        }, 20000);
-      });
-    }
+    internalPlayMotion: (group) => {
+      Object.values(modelInstancesRef.current).forEach((model) =>
+        safeRun(() => {
+          model?.internalModel?.motionManager?.stopAllMotions();
+          model?.motion(group, 0, 3);
+        }),
+      );
+    },
+    internalReset: () => {
+      Object.values(modelInstancesRef.current).forEach((model) =>
+        safeRun(() => {
+          model?.internalModel?.motionManager?.stopAllMotions();
+          model?.expression(null);
+        }),
+      );
+    },
+    waitUntilStable: async (signal) => waitCanvasStable(appRef.current, signal),
   }));
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !canvasRef.current) return;
+    if (typeof window === "undefined" || !canvasRef.current) return;
+
+    let cancelled = false;
+
     const init = async () => {
-      if (!coreLoadedRef.current) { await loadLive2DCore(); coreLoadedRef.current = true; }
-      if (!live2dDisplayRef.current) { const { Live2DModel } = await import('pixi-live2d-display'); live2dDisplayRef.current = { Live2DModel }; }
+      if (!coreLoadedRef.current) {
+        await loadLive2DCore();
+        if (cancelled) return;
+        coreLoadedRef.current = true;
+      }
+
+      if (!live2dDisplayRef.current) {
+        const { Live2DModel } = await import("pixi-live2d-display");
+        if (cancelled) return;
+        live2dDisplayRef.current = { Live2DModel };
+      }
+
       if (!appRef.current) {
         const app = new PIXI.Application({
-          view: canvasRef.current, width: 400, height: 400, backgroundAlpha: 0, antialias: true, resolution: 1, autoDensity: false, resizeTo: null, preserveDrawingBuffer: false
+          view: canvasRef.current,
+          width: CANVAS_SIZE,
+          height: CANVAS_SIZE,
+          backgroundAlpha: 0,
+          antialias: true,
+          resolution: 1,
+          autoDensity: false,
+          resizeTo: null,
+          preserveDrawingBuffer: false,
         });
         app.ticker.maxFPS = 30;
         app.stage.sortableChildren = true;
         appRef.current = app;
       }
     };
+
     init();
-    return () => { if (appRef.current) appRef.current.destroy(true, true); };
+
+    return () => {
+      cancelled = true;
+      if (appRef.current) {
+        appRef.current.destroy(true, true);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -151,51 +285,56 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
     const syncModels = async () => {
       const loadedModelPayloads = [];
       const reloadedModelIds = [];
-      const currentIds = new Set(models.map(m => m.id));
-      Object.keys(modelInstancesRef.current).forEach(id => {
+      const currentIds = new Set(models.map((model) => model.id));
+
+      Object.keys(modelInstancesRef.current).forEach((id) => {
         if (!currentIds.has(id)) {
-          const m = modelInstancesRef.current[id];
-          if (m) { try { appRef.current.stage.removeChild(m); m.destroy({ children: true }); } catch (e) { } }
+          removeModelInstance(appRef.current, modelInstancesRef.current[id]);
           delete modelInstancesRef.current[id];
-          setLoadingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
+          setModelLoading(id, null);
         }
       });
 
       for (let i = 0; i < models.length; i++) {
         if (isCancelled) break;
-        const { id, modelId, motion, expression, x, y, scale, reloadKey, isModified, customModelData, isHeadless, isBodyless } = models[i];
-        if (!modelId) continue;
 
-        const prevConfig = prevModels.find(m => m.id === id);
+        const currentConfig = models[i];
+        const { id, modelId, motion, expression } = currentConfig;
+        const prevConfig = prevModels.find((model) => model.id === id);
+        const usingLocalSource = currentConfig.modelSource === "local";
+        const preferredData = currentConfig.customModelData || (usingLocalSource ? currentConfig.localModelData : null);
+        const hasRenderableSource = usingLocalSource ? !!preferredData : !!preferredData || !!modelId;
         let instance = modelInstancesRef.current[id];
+        if (!hasRenderableSource) {
+          if (instance) {
+            removeModelInstance(appRef.current, instance);
+            delete modelInstancesRef.current[id];
+            setModelLoading(id, null);
+          }
+          continue;
+        }
 
-        const needsReload = !instance ||
-          (prevConfig?.modelId !== modelId) ||
-          (prevConfig?.isModified !== isModified) ||
-          (prevConfig?.reloadKey !== reloadKey) ||
-          (prevConfig?.customModelData !== customModelData) ||
-          (prevConfig?.isHeadless !== isHeadless) ||
-          (prevConfig?.isBodyless !== isBodyless);
-
-        const currentScale = scale || 0.25;
-        const dynamicOffset = ((currentScale - 0.25) / 0.05) * -50;
-        const baseX = -50 + dynamicOffset;
-        const baseY = -25 + dynamicOffset;
+        const needsReload = shouldReloadModel(instance, prevConfig, currentConfig);
 
         if (needsReload) {
           try {
             reloadedModelIds.push(id);
-            if (instance) { appRef.current.stage.removeChild(instance); instance.destroy({ children: true }); delete modelInstancesRef.current[id]; instance = null; }
-            setLoadingStates(prev => ({ ...prev, [id]: 'Loading...' }));
+
+            if (instance) {
+              removeModelInstance(appRef.current, instance);
+              delete modelInstancesRef.current[id];
+              instance = null;
+            }
+
+            setModelLoading(id, "Loading...");
 
             const ModelClass = live2dDisplayRef.current.Live2DModel;
             let data;
 
-            // 1. 获取数据
-            if (customModelData) {
-              data = JSON.parse(JSON.stringify(customModelData));
+            if (preferredData) {
+              data = JSON.parse(JSON.stringify(preferredData));
             } else {
-              const modelUrl = getModelApiBase(modelId, isModified);
+              const modelUrl = getModelApiBase(currentConfig.modelId, currentConfig.isModified);
               const modelPath = `${modelUrl}buildData.asset`;
 
               const response = await fetch(modelPath);
@@ -206,73 +345,57 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
 
             if (isCancelled) return;
 
-            // 2. 处理“去头”和“去身”逻辑
-            if ((isHeadless || isBodyless) && data.textures && Array.isArray(data.textures)) {
-              const hasTex00 = data.textures.some(t => t.includes('texture_00.png'));
-              const hasTex01 = data.textures.some(t => t.includes('texture_01.png'));
+            patchMaskedTextures(data, currentConfig.isHeadless, currentConfig.isBodyless);
 
-              if (hasTex00 && hasTex01) {
-                data.textures = data.textures.map(t => {
-                  if (isHeadless && t.includes('texture_00.png')) {
-                    // 将 texture_00 (头部) 替换为通用空资源
-                    return '../../chara/000_general/texture_00.png';
-                  }
-                  if (isBodyless && t.includes('texture_01.png')) {
-                    // 将 texture_01 (身体) 替换为通用空资源
-                    return '../../chara/000_general/texture_00.png';
-                  }
-                  return t;
-                });
-              }
-            }
-
-            // 3. 创建模型实例
             const newModel = await ModelClass.from(data, { autoInteract: false });
-
-            if (isCancelled) { newModel.destroy(); return; }
+            if (isCancelled) {
+              newModel.destroy();
+              return;
+            }
 
             appRef.current.stage.addChild(newModel);
             modelInstancesRef.current[id] = newModel;
             instance = newModel;
-
-            instance.scale.set(currentScale);
-            instance.x = baseX + (x || 0);
-            instance.y = baseY + (y || 0);
+            applyModelTransform(instance, currentConfig);
 
             if (!isCancelled && onModelLoad) {
               loadedModelPayloads.push({ id, data });
             }
 
-            setLoadingStates(prev => { const n = { ...prev }; delete n[id]; return n; });
-          } catch (e) {
-            if (!isCancelled) { console.error(`Failed to load model ${id}`, e); setLoadingStates(prev => ({ ...prev, [id]: 'Error' })); }
-          }
-        } else {
-          if (instance) {
-            if (scale !== prevConfig?.scale) {
-              instance.scale.set(currentScale);
-              instance.x = baseX + (x || 0);
-              instance.y = baseY + (y || 0);
-            } else {
-              if (x !== prevConfig?.x) instance.x = baseX + x;
-              if (y !== prevConfig?.y) instance.y = baseY + y;
+            setModelLoading(id, null);
+          } catch (error) {
+            if (!isCancelled) {
+              console.error(`Failed to load model ${id}`, error);
+              setModelLoading(id, "Error");
             }
+          }
+        } else if (instance) {
+          if (
+            currentConfig.scale !== prevConfig?.scale ||
+            currentConfig.x !== prevConfig?.x ||
+            currentConfig.y !== prevConfig?.y
+          ) {
+            applyModelTransform(instance, currentConfig);
           }
         }
 
         if (instance) instance.zIndex = i;
+
         if (!isCancelled && instance) {
           if (motion && motion !== prevConfig?.motion && motion !== "none") {
-            try { instance.motion(motion, 0, 3); } catch (e) { }
+            safeRun(() => instance.motion(motion, 0, 3));
           }
+
           if (expression !== prevConfig?.expression) {
-            try { instance.expression(expression === "none" ? null : expression); } catch (e) { }
+            safeRun(() => instance.expression(expression === "none" ? null : expression));
           }
         }
       }
 
       if (!isCancelled && onModelLoad && loadedModelPayloads.length > 0) {
-        loadedModelPayloads.forEach(({ id, data }) => onModelLoad(id, data));
+        loadedModelPayloads.forEach(({ id, data }) => {
+          onModelLoad(id, data);
+        });
       }
 
       if (!isCancelled && onSyncComplete) {
@@ -288,8 +411,32 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
   return (
     <div className="flex items-center justify-center w-full h-full">
       <div className="relative group">
-        <canvas ref={canvasRef} width="400" height="400" style={{ width: '400px', height: '400px', backgroundColor: backgroundColor === 'transparent' ? 'transparent' : backgroundColor }} className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing" />
-        {hasLoading && (<div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20 pointer-events-none"> <div className="flex flex-col items-center space-y-3"> <div className="relative"> <Loader2 className="w-10 h-10 text-[#E5004F] animate-spin" /> <div className="absolute inset-0 flex items-center justify-center"> <Music className="w-4 h-4 text-[#E5004F] animate-bounce" /> </div> </div> <div className="text-center"> <span className="text-xs font-bold text-[#E5004F] tracking-wider uppercase block">Now Loading</span> </div> </div> </div>)}
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_SIZE}
+          height={CANVAS_SIZE}
+          style={{
+            width: `${CANVAS_SIZE}px`,
+            height: `${CANVAS_SIZE}px`,
+            backgroundColor: backgroundColor === "transparent" ? "transparent" : backgroundColor,
+          }}
+          className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
+        />
+        {hasLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20 pointer-events-none">
+            <div className="flex flex-col items-center space-y-3">
+              <div className="relative">
+                <Loader2 className="w-10 h-10 text-[#E5004F] animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Music className="w-4 h-4 text-[#E5004F] animate-bounce" />
+                </div>
+              </div>
+              <div className="text-center">
+                <span className="text-xs font-bold text-[#E5004F] tracking-wider uppercase block">Now Loading</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
