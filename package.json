@@ -27,7 +27,7 @@
     "jszip": "^3.10.1",
     "libarchive-wasm": "^1.2.0",
     "lucide-react": "^0.563.0",
-    "next": "16.0.10",
+    "next": "16.1.6",
     "pixi-live2d-display": "file:./pixi-live2d-display",
     "pixi.js": "^6.5.10",
     "react": "^19.2.4",
