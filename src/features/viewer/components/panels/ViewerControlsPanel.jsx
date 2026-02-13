@@ -212,7 +212,7 @@ export function ViewerControlsPanel({
                       onClick={() => !isBatching && handleHeadlessChange()}
                       disabled={isBatching}
                       className={`transition-all duration-300 transform active:scale-95 flex items-center gap-1 ${activeModel.isHeadless ? "text-blue-500 drop-shadow-sm" : "text-gray-300 dark:text-gray-600 hover:text-gray-400"} ${isBatching ? "opacity-50 cursor-not-allowed" : ""}`}
-                      title={activeModel.isHeadless ? "显示头部" : "隐藏头部 (仅适用新画风)"}
+                      title={activeModel.isHeadless ? "显示头部" : "隐藏头部"}
                     >
                       <Shirt className="w-3.5 h-3.5" strokeWidth={2.5} />
                     </button>

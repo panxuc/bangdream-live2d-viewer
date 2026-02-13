@@ -11,6 +11,8 @@ export function CharacterFilterPopover({ disabled, allCategories, selectedCatego
   const idPrefix = useId();
   const whiteId = `${idPrefix}-whitelist`;
   const blackId = `${idPrefix}-blacklist`;
+  const toCategoryId = (category) =>
+    `${idPrefix}-cat-${category.replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase()}`;
 
   return (
     <Popover>
@@ -68,14 +70,17 @@ export function CharacterFilterPopover({ disabled, allCategories, selectedCatego
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             {allCategories.map((category) => (
               <div key={category} className="flex items-center space-x-2 group">
+                {/*
+                  Category names can contain spaces and punctuation; sanitize to keep id/htmlFor valid.
+                */}
                 <Checkbox
-                  id={category}
+                  id={toCategoryId(category)}
                   checked={selectedCategories[category]}
                   onCheckedChange={() => onCategoryToggle(category)}
                   className="data-[state=checked]:bg-[#E5004F] data-[state=checked]:border-[#E5004F] rounded-md border-gray-300 dark:border-gray-600"
                 />
                 <label
-                  htmlFor={category}
+                  htmlFor={toCategoryId(category)}
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 group-hover:text-[#E5004F] transition-colors cursor-pointer"
                 >
                   {category}

@@ -360,28 +360,9 @@ export function useViewerPageState() {
   const reloadPendingRef = useRef(false);
   const reloadTimeoutRef = useRef(null);
   const localArchivesRef = useRef(new Map());
-  const localBlobUrlsRef = useRef(new Map());
 
   const activeModel = useMemo(() => models.find((m) => m.id === activeModelId) || models[0], [models, activeModelId]);
   const activeModelIndex = useMemo(() => models.findIndex((m) => m.id === activeModelId), [models, activeModelId]);
-
-  const revokeBlobUrlsForModel = useCallback((modelId) => {
-    const urlSet = localBlobUrlsRef.current.get(modelId);
-    if (urlSet) {
-      urlSet.forEach((url) => URL.revokeObjectURL(url));
-      localBlobUrlsRef.current.delete(modelId);
-    }
-  }, []);
-
-  const setBlobUrlsForModel = useCallback(
-    (modelId, urlSet) => {
-      revokeBlobUrlsForModel(modelId);
-      if (urlSet && urlSet.size > 0) {
-        localBlobUrlsRef.current.set(modelId, urlSet);
-      }
-    },
-    [revokeBlobUrlsForModel],
-  );
 
   useEffect(() => {
     if (typeof window !== "undefined") window.PIXI = PIXI;
@@ -401,10 +382,6 @@ export function useViewerPageState() {
         clearTimeout(reloadTimeoutRef.current);
       }
 
-      localBlobUrlsRef.current.forEach((urlSet) => {
-        urlSet.forEach((url) => URL.revokeObjectURL(url));
-      });
-      localBlobUrlsRef.current.clear();
       localArchivesRef.current.clear();
     };
   }, []);
@@ -428,7 +405,6 @@ export function useViewerPageState() {
     (idToRemove) => {
       if (models.length <= 1) return;
 
-      revokeBlobUrlsForModel(idToRemove);
       localArchivesRef.current.delete(idToRemove);
 
       setModels((prev) => {
@@ -439,7 +415,7 @@ export function useViewerPageState() {
         return filtered;
       });
     },
-    [models.length, activeModelId, revokeBlobUrlsForModel],
+    [models.length, activeModelId],
   );
 
   const handleMoveModel = useCallback(
@@ -487,7 +463,6 @@ export function useViewerPageState() {
   const handleModelSourceChange = useCallback(
     (source) => {
       if (source !== "remote" && source !== "local") return;
-      revokeBlobUrlsForModel(activeModelId);
       localArchivesRef.current.delete(activeModelId);
 
       updateActiveModel({
@@ -495,7 +470,7 @@ export function useViewerPageState() {
         modelSource: source,
       });
     },
-    [activeModelId, revokeBlobUrlsForModel, updateActiveModel],
+    [activeModelId, updateActiveModel],
   );
 
   const handleModelLoad = useCallback((modelId, data) => {
@@ -644,17 +619,15 @@ export function useViewerPageState() {
     );
   }, []);
 
-  const handleCanvasSyncComplete = useCallback(({ reloadedModelIds }) => {
+  const handleCanvasSyncComplete = useCallback(() => {
     if (!reloadPendingRef.current) return;
 
-    if (Array.isArray(reloadedModelIds) && reloadedModelIds.length > 0) {
-      reloadPendingRef.current = false;
-      if (reloadTimeoutRef.current) {
-        clearTimeout(reloadTimeoutRef.current);
-        reloadTimeoutRef.current = null;
-      }
-      setIsReloading(false);
+    reloadPendingRef.current = false;
+    if (reloadTimeoutRef.current) {
+      clearTimeout(reloadTimeoutRef.current);
+      reloadTimeoutRef.current = null;
     }
+    setIsReloading(false);
   }, []);
 
   const handleTransformChange = useCallback(
@@ -758,13 +731,13 @@ export function useViewerPageState() {
     try {
       const modelPath = targetModelPath;
       const resolveArchivePath = (path) => archive.filePathMap.get(toLowerPath(path.replace(/\\/g, "/").replace(/^\/+/, "")));
-      const loadArchiveFileContent = async (path) => {
+      const loadArchiveFileContent = (path) => {
         const resolvedPath = resolveArchivePath(path);
         if (!resolvedPath) return null;
         return archive.filesMap.get(resolvedPath) || null;
       };
 
-      const modelContent = await loadArchiveFileContent(modelPath);
+      const modelContent = loadArchiveFileContent(modelPath);
       if (!modelContent) {
         throw new Error(`未找到文件: ${modelPath}`);
       }
@@ -772,15 +745,13 @@ export function useViewerPageState() {
       const modelText = new TextDecoder().decode(modelContent);
       const modelData = JSON.parse(modelText);
       const baseDir = getDirName(modelPath);
-      const blobUrls = new Set();
-
       const toBlobUrl = async (relativePath, currentDir) => {
         if (!relativePath || typeof relativePath !== "string" || isExternalUrl(relativePath)) {
           return relativePath;
         }
 
         const normalized = joinAndNormalizePath(currentDir, relativePath);
-        const content = await loadArchiveFileContent(normalized);
+        const content = loadArchiveFileContent(normalized);
         if (!content) {
           return relativePath;
         }
@@ -870,7 +841,6 @@ export function useViewerPageState() {
 
       const rewrittenData = await rewriteTopLevelModel(modelData, baseDir);
 
-      setBlobUrlsForModel(activeModelId, blobUrls);
       const zipAndPathLabel = activeModel.localModelFileName
         ? `${activeModel.localModelFileName}/${modelPath}`
         : modelPath;
@@ -891,10 +861,9 @@ export function useViewerPageState() {
         localModelError: error instanceof Error ? error.message : "加载本地模型失败",
       });
     }
-  }, [activeModel, activeModelId, setBlobUrlsForModel, updateActiveModel]);
+  }, [activeModel, activeModelId, updateActiveModel]);
 
   const handleClearLocalModel = useCallback(() => {
-    revokeBlobUrlsForModel(activeModelId);
     updateActiveModel({
       modelSource: "remote",
       localModelData: null,
@@ -902,7 +871,7 @@ export function useViewerPageState() {
       localModelLabel: null,
       localModelError: null,
     });
-  }, [activeModelId, revokeBlobUrlsForModel, updateActiveModel]);
+  }, [updateActiveModel]);
 
   return {
     models,

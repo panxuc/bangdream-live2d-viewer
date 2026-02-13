@@ -271,7 +271,10 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
       cancelled = true;
       if (appRef.current) {
         appRef.current.destroy(true, true);
+        appRef.current = null;
       }
+      modelInstancesRef.current = {};
+      prevModelsRef.current = [];
     };
   }, []);
 

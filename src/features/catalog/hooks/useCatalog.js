@@ -1,6 +1,12 @@
 import useSWR from "swr";
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
+const fetcher = async (url) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status}`);
+  }
+  return res.json();
+};
 
 export function useCharacters() {
   const { data, error, isLoading } = useSWR("/api/characters?limit=114514", fetcher, {

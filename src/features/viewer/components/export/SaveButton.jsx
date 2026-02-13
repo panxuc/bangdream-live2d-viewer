@@ -18,7 +18,6 @@ const SaveButton = memo(function SaveButton({
   selectedModel,
   selectedMotion,
   selectedExpression,
-  borrowedModelId, // <--- 新增 Prop：借用的模型ID
   canvasRef,
   backgroundColor,
   onBackgroundColorChange,
@@ -38,15 +37,11 @@ const SaveButton = memo(function SaveButton({
 
     const parts = [clean(baseName)];
 
-    // if (borrowedModelId) {
-    //   parts.push(clean(borrowedModelId));
-    // }
-
     if (motionGroup) parts.push(clean(motionGroup));
     if (expression) parts.push(clean(expression));
 
     return `${parts.join('_')}.png`;
-  }, [customName, selectedModel, borrowedModelId]);
+  }, [customName, selectedModel]);
 
   // 当前预览的文件名
   const currentFileName = useMemo(() => {
@@ -58,7 +53,7 @@ const SaveButton = memo(function SaveButton({
     const app = canvasRef.current.getApp();
     if (!app || !app.renderer) return;
 
-    const targetSize = parseInt(imageSize);
+    const targetSize = parseInt(imageSize, 10);
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = targetSize;
     finalCanvas.height = targetSize;
@@ -119,7 +114,11 @@ const SaveButton = memo(function SaveButton({
 
     try {
       if (onReload) onReload();
-      await new Promise(r => setTimeout(r, 1000));
+      if (canvasRef.current?.waitUntilStable) {
+        await canvasRef.current.waitUntilStable(signal);
+      } else {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
 
       if (signal.aborted) throw new Error("Cancelled");
       setBatchProgress({ current: 1, total: totalSteps, currentName: "标准待机" });
@@ -234,10 +233,10 @@ const SaveButton = memo(function SaveButton({
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>处理中... {batchProgress.current} / {batchProgress.total}</span>
               </div>
-              <span>{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
+              <span>{batchProgress.total > 0 ? Math.round((batchProgress.current / batchProgress.total) * 100) : 0}%</span>
             </div>
             <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div className="h-full bg-[#E5004F] transition-all duration-500 ease-out" style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}></div>
+              <div className="h-full bg-[#E5004F] transition-all duration-500 ease-out" style={{ width: `${batchProgress.total > 0 ? (batchProgress.current / batchProgress.total) * 100 : 0}%` }}></div>
             </div>
             <div className="text-[10px] text-center text-muted-foreground truncate px-1">当前: {batchProgress.currentName}</div>
             <Button variant="destructive" size="sm" className="w-full h-8 rounded-lg text-xs" onClick={cancelBatch}> <StopCircle className="w-3 h-3 mr-1.5" /> 停止生成差分 </Button>

@@ -18,7 +18,6 @@ export function ViewerExportPanel({ activeModel, canvasRef, backgroundColor, set
               selectedModel={activeModel.modelId || activeModel.localModelLabel || activeModel.localModelPath || "local-model"}
               selectedMotion={activeModel.motion}
               selectedExpression={activeModel.expression}
-              borrowedModelId={activeModel.borrowedModelId}
               canvasRef={canvasRef}
               backgroundColor={backgroundColor}
               onBackgroundColorChange={setBackgroundColor}

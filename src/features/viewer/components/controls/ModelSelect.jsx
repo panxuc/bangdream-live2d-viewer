@@ -7,7 +7,13 @@ import { Shirt, Loader2, RotateCw } from "lucide-react";
 import useSWR from "swr";
 import { SelectField, selectItemClass } from "./shared/SelectField";
 
-const fetcher = (url) => fetch(url).then((res) => res.json());
+const fetcher = async (url) => {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status}`);
+  }
+  return res.json();
+};
 
 const ModelSelect = memo(function ModelSelect({
   characterId,
