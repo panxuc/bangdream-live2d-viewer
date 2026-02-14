@@ -246,6 +246,7 @@ export function ViewerControlsPanel({
               isUploading={isUploadingLocalModel}
               isReloading={isReloading}
               localModelFileName={activeModel.localModelFileName}
+              localArchiveToken={activeModel.localArchiveToken}
               localModelCandidates={activeModel.localModelCandidates}
               localModelPath={activeModel.localModelPath}
               localModelError={activeModel.localModelError}

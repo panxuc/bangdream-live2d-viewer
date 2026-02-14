@@ -28,6 +28,7 @@ const EMPTY_MODEL = {
   isBodyless: false,
   isVisible: true,
   localModelFileName: null,
+  localArchiveToken: null,
   localModelCandidates: [],
   localModelPath: null,
   localModelLabel: null,
@@ -71,6 +72,7 @@ const RESET_ON_SOURCE_CHANGE = {
   isHeadless: false,
   isBodyless: false,
   localModelFileName: null,
+  localArchiveToken: null,
   localModelCandidates: [],
   localModelPath: null,
   localModelLabel: null,
@@ -147,13 +149,14 @@ const decodeZipFileName = (bytes) => {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     try {
-      return new TextDecoder("gb18030").decode(bytes);
+      return new TextDecoder("gbk").decode(bytes);
     } catch {
       return new TextDecoder().decode(bytes);
     }
   }
 };
 let libarchiveRuntimePromise = null;
+let sevenZipRuntimePromise = null;
 
 const loadBrowserScript = (src) =>
   new Promise((resolve, reject) => {
@@ -209,29 +212,184 @@ const loadLibarchiveRuntime = async () => {
   return libarchiveRuntimePromise;
 };
 
+const loadSevenZipRuntime = async () => {
+  if (sevenZipRuntimePromise) {
+    return sevenZipRuntimePromise;
+  }
+
+  sevenZipRuntimePromise = (async () => {
+    if (typeof window === "undefined") {
+      throw new Error("7z parser is only available in browser");
+    }
+
+    await loadBrowserScript("/7zz.umd.js");
+    const sevenZipFactory = window.SevenZip;
+    if (typeof sevenZipFactory !== "function") {
+      throw new Error("7z-wasm runtime failed to load");
+    }
+
+    const baseOptions = {
+      noInitialRun: true,
+      noExitRuntime: true,
+      print: () => {},
+      printErr: () => {},
+    };
+
+    try {
+      return await sevenZipFactory({
+        ...baseOptions,
+        locateFile: (fileName) => (fileName.endsWith(".wasm") ? "/7zz.wasm" : fileName),
+      });
+    } catch {
+      return sevenZipFactory({
+        ...baseOptions,
+        locateFile: (fileName) =>
+          fileName.endsWith(".wasm")
+            ? "https://cdn.jsdelivr.net/npm/7z-wasm@1.2.0/7zz.wasm"
+            : fileName,
+      });
+    }
+  })();
+
+  return sevenZipRuntimePromise;
+};
+
+const removeFsTree = (fs, path) => {
+  if (!fs.analyzePath(path).exists) return;
+  const entries = fs.readdir(path).filter((name) => name !== "." && name !== "..");
+  for (const entry of entries) {
+    const child = `${path}/${entry}`;
+    const stat = fs.stat(child);
+    if (fs.isDir(stat.mode)) {
+      removeFsTree(fs, child);
+    } else {
+      fs.unlink(child);
+    }
+  }
+  fs.rmdir(path);
+};
+
+const collect7zExtractedFiles = (fs, rootDir) => {
+  const output = [];
+  const walk = (currentDir) => {
+    const entries = fs.readdir(currentDir).filter((name) => name !== "." && name !== "..");
+    for (const entry of entries) {
+      const fullPath = `${currentDir}/${entry}`;
+      const stat = fs.stat(fullPath);
+      if (fs.isDir(stat.mode)) {
+        walk(fullPath);
+        continue;
+      }
+
+      const relativePath = fullPath.slice(rootDir.length + 1).replace(/\\/g, "/");
+      const data = fs.readFile(fullPath, { encoding: "binary" });
+      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+      output.push({ path: relativePath, bytes });
+    }
+  };
+  walk(rootDir);
+  return output;
+};
+
+const extract7zEntries = async (file) => {
+  const sevenZip = await loadSevenZipRuntime();
+  const fs = sevenZip.FS;
+  const archiveBytes = new Uint8Array(await file.arrayBuffer());
+  const sessionId = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const workDir = `/tmp-${sessionId}`;
+  const outDir = `${workDir}/out`;
+  const archiveName = `${workDir}/archive.7z`;
+  const payload = createArchivePayload();
+  let index = 0;
+
+  try {
+    fs.mkdir(workDir);
+    fs.mkdir(outDir);
+    fs.writeFile(archiveName, archiveBytes);
+
+    let exitCode = 0;
+    try {
+      const result = sevenZip.callMain(["x", archiveName, `-o${outDir}`, "-y", "-bd"]);
+      if (typeof result === "number") exitCode = result;
+    } catch (error) {
+      const status = error?.status;
+      if (typeof status === "number") {
+        exitCode = status;
+      } else {
+        throw error;
+      }
+    }
+
+    if (exitCode !== 0) {
+      throw new Error(`7z extraction failed (exit code: ${exitCode})`);
+    }
+
+    const extractedFiles = collect7zExtractedFiles(fs, outDir);
+    extractedFiles.forEach((entry) => {
+      appendArchiveEntry(payload, entry.path, entry.bytes, index);
+      index += 1;
+    });
+  } finally {
+    try {
+      removeFsTree(fs, workDir);
+    } catch {
+      // best effort cleanup
+    }
+  }
+
+  return {
+    ...payload,
+    filePaths: payload.entries.map((entry) => entry.path),
+  };
+};
+
+const createArchivePayload = () => ({
+  pathToEntryKeys: new Map(),
+  filesMap: new Map(),
+  entries: [],
+});
+
+const appendArchiveEntry = (payload, path, bytes, index) => {
+  const normalizedPath = path.replace(/\\/g, "/").replace(/^\/+/, "");
+  const lowerPath = toLowerPath(normalizedPath);
+  const entryKey = `entry-${index}`;
+  const keys = payload.pathToEntryKeys.get(lowerPath) || [];
+  keys.push(entryKey);
+  payload.pathToEntryKeys.set(lowerPath, keys);
+  payload.filesMap.set(entryKey, bytes);
+  payload.entries.push({
+    key: entryKey,
+    path: normalizedPath,
+    lowerPath,
+  });
+};
+
 const extractArchiveEntries = async (file) => {
   const lowerName = file.name.toLowerCase();
 
   if (lowerName.endsWith(".zip")) {
     const zip = await JSZip.loadAsync(file, { decodeFileName: decodeZipFileName });
-    const filePathMap = new Map();
-    const filesMap = new Map();
+    const payload = createArchivePayload();
     const fileEntries = Object.keys(zip.files).filter((path) => !zip.files[path].dir);
 
+    let index = 0;
     for (const path of fileEntries) {
       const zipEntry = zip.file(path);
       if (!zipEntry) continue;
       const normalizedPath = path.replace(/\\/g, "/").replace(/^\/+/, "");
       const bytes = await zipEntry.async("uint8array");
-      filePathMap.set(toLowerPath(normalizedPath), normalizedPath);
-      filesMap.set(normalizedPath, bytes);
+      appendArchiveEntry(payload, normalizedPath, bytes, index);
+      index += 1;
     }
 
     return {
-      filePathMap,
-      filesMap,
-      filePaths: Array.from(filesMap.keys()),
+      ...payload,
+      filePaths: payload.entries.map((entry) => entry.path),
     };
+  }
+
+  if (lowerName.endsWith(".7z")) {
+    return extract7zEntries(file);
   }
 
   const api = await loadLibarchiveRuntime();
@@ -245,8 +403,8 @@ const extractArchiveEntries = async (file) => {
     throw new Error("不支持或损坏的压缩包格式");
   }
 
-  const filePathMap = new Map();
-  const filesMap = new Map();
+  const payload = createArchivePayload();
+  let index = 0;
 
   try {
     for (;;) {
@@ -286,8 +444,8 @@ const extractArchiveEntries = async (file) => {
         offset += chunk.length;
       });
 
-      filePathMap.set(toLowerPath(normalizedPath), normalizedPath);
-      filesMap.set(normalizedPath, bytes);
+      appendArchiveEntry(payload, normalizedPath, bytes, index);
+      index += 1;
     }
   } finally {
     api.read_free(archive);
@@ -295,9 +453,8 @@ const extractArchiveEntries = async (file) => {
   }
 
   return {
-    filePathMap,
-    filesMap,
-    filePaths: Array.from(filesMap.keys()),
+    ...payload,
+    filePaths: payload.entries.map((entry) => entry.path),
   };
 };
 
@@ -326,26 +483,45 @@ const toControlModelData = (data) => {
   };
 };
 
-const collectModelCandidates = (filePaths) => {
-  const candidates = filePaths
-    .filter((path) => {
-      const lower = path.toLowerCase();
+const collectModelCandidates = (entries) => {
+  const candidates = entries
+    .filter((entry) => {
+      const lower = entry.path.toLowerCase();
       const isModelLike = lower.endsWith(".json") || lower.endsWith(".asset");
       const isExcluded = EXCLUDED_LOCAL_MODEL_SUFFIXES.some((suffix) => lower.endsWith(suffix));
       return isModelLike && !isExcluded;
     })
     .sort((a, b) => {
-      const aName = a.toLowerCase();
-      const bName = b.toLowerCase();
+      const aName = a.path.toLowerCase();
+      const bName = b.path.toLowerCase();
       const aPriority = MODEL_FILE_PATTERNS.findIndex((pattern) => aName.endsWith(pattern));
       const bPriority = MODEL_FILE_PATTERNS.findIndex((pattern) => bName.endsWith(pattern));
       const normA = aPriority === -1 ? MODEL_FILE_PATTERNS.length : aPriority;
       const normB = bPriority === -1 ? MODEL_FILE_PATTERNS.length : bPriority;
       if (normA !== normB) return normA - normB;
-      return a.localeCompare(b);
+      return a.path.localeCompare(b.path);
     });
 
-  return candidates.map((path) => ({ path, label: getBaseName(path) }));
+  const totalByPath = new Map();
+  candidates.forEach((entry) => {
+    const path = entry.path;
+    totalByPath.set(path, (totalByPath.get(path) || 0) + 1);
+  });
+
+  const seenByPath = new Map();
+  return candidates.map((entry, index) => {
+    const path = entry.path;
+    const seen = (seenByPath.get(path) || 0) + 1;
+    seenByPath.set(path, seen);
+    const total = totalByPath.get(path) || 1;
+    const suffix = total > 1 ? ` [${seen}/${total}]` : "";
+    return {
+      id: `candidate-${index}`,
+      path,
+      entryKey: entry.key,
+      label: `${path}${suffix}`,
+    };
+  });
 };
 
 export function useViewerPageState() {
@@ -671,9 +847,7 @@ export function useViewerPageState() {
       setIsUploadingLocalModel(true);
       try {
         const archivePayload = await extractArchiveEntries(file);
-        const filePaths = archivePayload.filePaths;
-
-        const candidates = collectModelCandidates(filePaths);
+        const candidates = collectModelCandidates(archivePayload.entries);
         if (candidates.length === 0) {
           throw new Error("压缩包中没有可选的 model.json / buildData.asset / *.model3.json 文件");
         }
@@ -682,6 +856,7 @@ export function useViewerPageState() {
 
         updateActiveModel({
           localModelFileName: file.name,
+          localArchiveToken: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
           localModelCandidates: candidates,
           localModelPath: null,
           localModelData: null,
@@ -706,9 +881,9 @@ export function useViewerPageState() {
   );
 
   const handleLocalModelPathSelect = useCallback(
-    (path) => {
+    (candidateId) => {
       updateActiveModel({
-        localModelPath: path,
+        localModelPath: candidateId,
         localModelError: null,
       });
     },
@@ -722,22 +897,26 @@ export function useViewerPageState() {
       return;
     }
 
-    const targetModelPath = pathOverride || activeModel.localModelPath;
-    if (!targetModelPath) {
+    const selectedCandidateId = pathOverride || activeModel.localModelPath;
+    if (!selectedCandidateId) {
       updateActiveModel({ localModelError: "请选择 model.json 或 buildData.asset" });
       return;
     }
 
     try {
-      const modelPath = targetModelPath;
-      const resolveArchivePath = (path) => archive.filePathMap.get(toLowerPath(path.replace(/\\/g, "/").replace(/^\/+/, "")));
-      const loadArchiveFileContent = (path) => {
-        const resolvedPath = resolveArchivePath(path);
-        if (!resolvedPath) return null;
-        return archive.filesMap.get(resolvedPath) || null;
+      const selectedCandidate = activeModel.localModelCandidates.find((item) => item.id === selectedCandidateId);
+      const modelPath = selectedCandidate?.path || selectedCandidateId;
+      const resolveArchiveEntryKeys = (path) => archive.pathToEntryKeys.get(toLowerPath(path.replace(/\\/g, "/").replace(/^\/+/, ""))) || [];
+      const loadArchiveFileContent = (path, preferredEntryKey = null) => {
+        if (preferredEntryKey && archive.filesMap.has(preferredEntryKey)) {
+          return archive.filesMap.get(preferredEntryKey) || null;
+        }
+        const resolvedEntryKeys = resolveArchiveEntryKeys(path);
+        if (resolvedEntryKeys.length === 0) return null;
+        return archive.filesMap.get(resolvedEntryKeys[0]) || null;
       };
 
-      const modelContent = loadArchiveFileContent(modelPath);
+      const modelContent = loadArchiveFileContent(modelPath, selectedCandidate?.entryKey || null);
       if (!modelContent) {
         throw new Error(`未找到文件: ${modelPath}`);
       }

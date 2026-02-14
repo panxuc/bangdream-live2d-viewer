@@ -11,6 +11,7 @@ export function LocalModelUpload({
   isUploading,
   isReloading = false,
   localModelFileName,
+  localArchiveToken,
   localModelCandidates = [],
   localModelPath,
   localModelError,
@@ -79,6 +80,7 @@ export function LocalModelUpload({
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <SelectField
+            key={localArchiveToken || "local-archive-empty"}
             value={localModelPath || undefined}
             onValueChange={async (value) => {
               onSelectModelPath(value);
@@ -91,8 +93,8 @@ export function LocalModelUpload({
             emptyState={null}
           >
             {localModelCandidates.map((item) => (
-              <SelectItem key={item.path} value={item.path} className={selectItemClass}>
-                {item.path}
+              <SelectItem key={item.id || item.path} value={item.id || item.path} className={selectItemClass}>
+                {item.label || item.path}
               </SelectItem>
             ))}
           </SelectField>
