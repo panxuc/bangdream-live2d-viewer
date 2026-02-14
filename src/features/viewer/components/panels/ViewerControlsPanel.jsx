@@ -1,7 +1,9 @@
 "use client";
 
 import { CharacterSelect, ModelSelect, MotionSelect, ExpressionSelect, SimpleSlider, LocalModelUpload } from "@/src/features/viewer/components/controls";
-import { ChevronDown, ChevronUp, FolderOpen, Layers, Move, Plus, Settings, Shirt, Shuffle, Skull, Sparkles, Trash2, Wifi } from "lucide-react";
+import { getBestdoriAssetUrl } from "@/src/config/urls";
+import { ChevronDown, ChevronUp, ExternalLink, FolderOpen, Layers, Move, Plus, Settings, Shirt, Shuffle, Skull, Sparkles, Trash2, Wifi } from "lucide-react";
+import { useMemo } from "react";
 
 export function ViewerControlsPanel({
   models,
@@ -33,6 +35,20 @@ export function ViewerControlsPanel({
   handleLocalModelPathSelect,
   handleApplyLocalModel,
 }) {
+  const bestdoriAssetId = useMemo(() => {
+    const raw = activeModel?.modelId;
+    if (!raw || typeof raw !== "string") return null;
+    const normalized = raw.trim();
+    return normalized || null;
+  }, [activeModel.modelId]);
+  const bestdoriJpUrl = bestdoriAssetId ? getBestdoriAssetUrl("jp", bestdoriAssetId) : null;
+  const bestdoriCnUrl = bestdoriAssetId ? getBestdoriAssetUrl("cn", bestdoriAssetId) : null;
+
+  const handleOpenBestdori = (url) => {
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="lg:sticky lg:top-28 space-y-6">
       <div className="panel-glass p-4 md:p-5">
@@ -199,6 +215,30 @@ export function ViewerControlsPanel({
                 <div className="flex items-center justify-between px-1 mb-1.5">
                   <label className="text-xs font-bold text-gray-400 uppercase">服装</label>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenBestdori(bestdoriJpUrl)}
+                      disabled={isBatching || !bestdoriJpUrl}
+                      className={`transition-all duration-300 transform active:scale-95 inline-flex items-center gap-1 ${bestdoriJpUrl ? "text-gray-300 dark:text-gray-600 hover:text-[#E5004F]" : "text-gray-200 dark:text-gray-700"} ${isBatching || !bestdoriJpUrl ? "opacity-50 cursor-not-allowed" : ""}`}
+                      title={bestdoriJpUrl ? "在 Bestdori (JP) 中打开" : "请先选择一个在线服装模型"}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-semibold uppercase">JP</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenBestdori(bestdoriCnUrl)}
+                      disabled={isBatching || !bestdoriCnUrl}
+                      className={`transition-all duration-300 transform active:scale-95 inline-flex items-center gap-1 ${bestdoriCnUrl ? "text-gray-300 dark:text-gray-600 hover:text-[#E5004F]" : "text-gray-200 dark:text-gray-700"} ${isBatching || !bestdoriCnUrl ? "opacity-50 cursor-not-allowed" : ""}`}
+                      title={bestdoriCnUrl ? "在 Bestdori (CN) 中打开" : "请先选择一个在线服装模型"}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-semibold uppercase">CN</span>
+                    </button>
+
+                    <span className="text-gray-200 dark:text-gray-700">|</span>
+
                     <button
                       onClick={() => !isBatching && handleBodylessChange()}
                       disabled={isBatching}

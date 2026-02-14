@@ -1,6 +1,7 @@
 "use client";
 
 import { SaveButton } from "@/src/features/viewer/components/export";
+import { EXTERNAL_URLS } from "@/src/config/urls";
 import { Download } from "lucide-react";
 
 export function ViewerExportPanel({ activeModel, canvasRef, backgroundColor, setBackgroundColor, handleModelReload, setIsBatching }) {
@@ -31,7 +32,7 @@ export function ViewerExportPanel({ activeModel, canvasRef, backgroundColor, set
         <p className="text-[10px] uppercase font-bold tracking-widest">非官方粉丝项目</p>
         <p className="text-[10px] uppercase font-bold tracking-widest">禁止商业用途</p>
         <a
-          href="https://bestdori.com/home/support"
+          href={EXTERNAL_URLS.bestdoriSupport}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block mt-2 text-[10px] font-bold tracking-widest text-[#E5004F] hover:underline"

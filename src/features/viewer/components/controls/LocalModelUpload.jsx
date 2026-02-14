@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { SelectItem } from "@/components/ui/select";
-import { FileArchive, FileJson, RotateCw, Upload } from "lucide-react";
+import { FileJson, RotateCw, Upload } from "lucide-react";
 import { useRef } from "react";
 import { SelectField, selectItemClass } from "./shared/SelectField";
 
@@ -69,7 +69,7 @@ export function LocalModelUpload({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".zip,.rar,.7z,.tar,.tgz,.gz,.bz2,.xz,.txz,.tbz,.tbz2,.tar.gz,.tar.bz2,.tar.xz,application/zip,application/x-rar-compressed,application/x-7z-compressed,application/x-tar,application/gzip,application/x-bzip2,application/x-xz"
+          accept=".zip,.7z,.rar,.tar,.tgz,.tbz,.tbz2,.txz"
           className="hidden"
           onChange={handleFileChange}
         />

@@ -3,11 +3,12 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from "react";
 import * as PIXI from "pixi.js";
 import { Loader2, Music } from "lucide-react";
+import { PUBLIC_ASSET_PATHS, getViewerModelApiBase } from "@/src/config/urls";
 
 let coreLoadPromise = null;
 const CANVAS_SIZE = 400;
 const DEFAULT_MODEL_SCALE = 0.25;
-const MODEL_MASK_TEXTURE = "../../chara/000_general/texture_00.png";
+const MODEL_MASK_TEXTURE = PUBLIC_ASSET_PATHS.modelMaskTexture;
 const STABILITY_CHECK_INTERVAL = 50;
 const STABILITY_DURATION = 1500;
 const STABILITY_REQUIRED_CHECKS = STABILITY_DURATION / STABILITY_CHECK_INTERVAL;
@@ -35,7 +36,7 @@ const loadLive2DCore = () => {
   if (typeof window === "undefined") return Promise.resolve();
   if (coreLoadPromise) return coreLoadPromise;
 
-  const scripts = ["/live2d.min.js", "/live2dcubismcore.min.js"];
+  const scripts = PUBLIC_ASSET_PATHS.live2dScripts;
   coreLoadPromise = Promise.all(scripts.map(loadScript)).catch((error) => {
     coreLoadPromise = null;
     throw error;
@@ -43,8 +44,6 @@ const loadLive2DCore = () => {
 
   return coreLoadPromise;
 };
-
-const getModelApiBase = (modelId, isModified) => (isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`);
 
 const safeRun = (fn) => {
   try {
@@ -337,7 +336,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
             if (preferredData) {
               data = JSON.parse(JSON.stringify(preferredData));
             } else {
-              const modelUrl = getModelApiBase(currentConfig.modelId, currentConfig.isModified);
+              const modelUrl = getViewerModelApiBase(currentConfig.modelId, currentConfig.isModified);
               const modelPath = `${modelUrl}buildData.asset`;
 
               const response = await fetch(modelPath);

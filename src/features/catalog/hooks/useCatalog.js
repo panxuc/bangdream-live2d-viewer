@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { API_ROUTES, getCharactersApiUrl } from "@/src/config/urls";
 
 const fetcher = async (url) => {
   const res = await fetch(url);
@@ -9,7 +10,7 @@ const fetcher = async (url) => {
 };
 
 export function useCharacters() {
-  const { data, error, isLoading } = useSWR("/api/characters?limit=114514", fetcher, {
+  const { data, error, isLoading } = useSWR(getCharactersApiUrl(114514), fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
   });
@@ -22,7 +23,7 @@ export function useCharacters() {
 }
 
 export function useCategories() {
-  const { data, error, isLoading } = useSWR("/api/categories", fetcher, {
+  const { data, error, isLoading } = useSWR(API_ROUTES.categories, fetcher, {
     revalidateOnFocus: false,
   });
 

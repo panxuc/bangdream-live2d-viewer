@@ -2,6 +2,7 @@
 
 import { SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { getModelsApiUrl } from "@/src/config/urls";
 import { useMemo, memo } from "react";
 import { Shirt, Loader2, RotateCw } from "lucide-react";
 import useSWR from "swr";
@@ -26,10 +27,7 @@ const ModelSelect = memo(function ModelSelect({
   isReloading = false,
 }) {
   const paddedId = characterId ? characterId.padStart(3, '0') : null;
-  // 使用 isModified 参数来获取 chara 或 charam 列表
-  const swrKey = paddedId
-    ? `/api/models?characterId=${paddedId}&isModified=${isModified}`
-    : null;
+  const swrKey = paddedId ? getModelsApiUrl(paddedId, isModified) : null;
 
   const { data, isLoading } = useSWR(swrKey, fetcher, {
     revalidateOnFocus: false,

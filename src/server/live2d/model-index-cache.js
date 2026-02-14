@@ -1,4 +1,4 @@
-import { getLive2DBranch } from "./remote";
+import { getLive2DBranch, getLive2DModelIndexUrl } from "@/src/config/urls";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const branchCache = new Map();
@@ -12,7 +12,7 @@ export async function getModelIndex(isModified) {
     return cached;
   }
 
-  const response = await fetch(`https://bangdreamr2.haneoka.org/${branch}/_info.json`);
+  const response = await fetch(getLive2DModelIndexUrl(isModified));
   if (!response.ok) {
     throw new Error(`Failed to fetch model index: ${response.status}`);
   }

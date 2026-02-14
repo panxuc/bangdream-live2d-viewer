@@ -3,6 +3,7 @@
 import * as PIXI from "pixi.js";
 import JSZip from "jszip";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EXTERNAL_URLS, PUBLIC_ASSET_PATHS, getViewerModelApiBase } from "@/src/config/urls";
 
 export const BRAND_PINK = "#E5004F";
 export const MAX_MODELS = 16;
@@ -87,7 +88,6 @@ const FILE_PATH_KEYS = ["model", "physics", "pose", "userData", "sound", "file"]
 const EXCLUDED_LOCAL_MODEL_SUFFIXES = ["exp.json", "physics.json", "transitiondata.asset"];
 
 const toNullableSelection = (value) => (value === "none" ? null : value);
-const getModelApiBase = (modelId, isModified) => (isModified ? `/api/charam/${modelId}/` : `/api/chara/${modelId}/`);
 const createModel = (id) => ({ id, ...EMPTY_MODEL });
 
 const isObject = (value) => value !== null && typeof value === "object";
@@ -197,13 +197,13 @@ const loadLibarchiveRuntime = async () => {
       throw new Error("Archive parser is only available in browser");
     }
 
-    await loadBrowserScript("/libarchive.js");
+    await loadBrowserScript(PUBLIC_ASSET_PATHS.libarchiveScript);
     if (typeof window.libarchive !== "function") {
       throw new Error("libarchive runtime failed to load");
     }
 
     const wasmModule = await window.libarchive({
-      locateFile: (fileName) => (fileName.endsWith(".wasm") ? "/libarchive.wasm" : fileName),
+      locateFile: (fileName) => (fileName.endsWith(".wasm") ? PUBLIC_ASSET_PATHS.libarchiveWasm : fileName),
     });
 
     return createLibarchiveApi(wasmModule);
@@ -222,7 +222,7 @@ const loadSevenZipRuntime = async () => {
       throw new Error("7z parser is only available in browser");
     }
 
-    await loadBrowserScript("/7zz.umd.js");
+    await loadBrowserScript(PUBLIC_ASSET_PATHS.sevenZipScript);
     const sevenZipFactory = window.SevenZip;
     if (typeof sevenZipFactory !== "function") {
       throw new Error("7z-wasm runtime failed to load");
@@ -238,14 +238,14 @@ const loadSevenZipRuntime = async () => {
     try {
       return await sevenZipFactory({
         ...baseOptions,
-        locateFile: (fileName) => (fileName.endsWith(".wasm") ? "/7zz.wasm" : fileName),
+        locateFile: (fileName) => (fileName.endsWith(".wasm") ? PUBLIC_ASSET_PATHS.sevenZipWasm : fileName),
       });
     } catch {
       return sevenZipFactory({
         ...baseOptions,
         locateFile: (fileName) =>
           fileName.endsWith(".wasm")
-            ? "https://cdn.jsdelivr.net/npm/7z-wasm@1.2.0/7zz.wasm"
+            ? EXTERNAL_URLS.sevenZipWasmCdn
             : fileName,
       });
     }
@@ -679,7 +679,7 @@ export function useViewerPageState() {
         const isLocalTarget = activeModel.modelSource === "local" && !!activeModel.localModelData;
         if (!isLocalTarget && !currentModelId) return;
 
-        const sourceBaseUrl = getModelApiBase(sourceModelId, false);
+        const sourceBaseUrl = getViewerModelApiBase(sourceModelId, false);
         const sourceDataUrl = `${sourceBaseUrl}buildData.asset`;
         let targetJson;
         let targetBaseUrl = "";
@@ -687,7 +687,7 @@ export function useViewerPageState() {
         if (isLocalTarget) {
           targetJson = JSON.parse(JSON.stringify(activeModel.localModelData));
         } else {
-          targetBaseUrl = getModelApiBase(currentModelId, activeModel.isModified);
+          targetBaseUrl = getViewerModelApiBase(currentModelId, activeModel.isModified);
           const targetDataUrl = `${targetBaseUrl}buildData.asset`;
           const targetRes = await fetch(targetDataUrl);
           if (!targetRes.ok) throw new Error("Failed to fetch target model data");
