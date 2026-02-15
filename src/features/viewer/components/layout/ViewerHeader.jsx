@@ -1,6 +1,7 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
+import { HelpSheet } from "./HelpSheet";
 
 export function ViewerHeader({ isDarkMode, onToggleDarkMode }) {
   return (
@@ -16,13 +17,16 @@ export function ViewerHeader({ isDarkMode, onToggleDarkMode }) {
               <span className="text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">Live2D 查看器</span>
             </div>
           </div>
-          <button
-            onClick={onToggleDarkMode}
-            className="p-2 rounded-lg border border-black/10 bg-white text-[#E5004F] transition-colors hover:bg-[#E5004F]/5 dark:bg-[#2a2732] dark:border-white/10"
-            title={isDarkMode ? "切换到浅色模式" : "切换到深色模式"}
-          >
-            {isDarkMode ? <Moon className="w-6 h-6 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" fill="currentColor" /> : <Sun className="w-6 h-6 text-[#E5004F]" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <HelpSheet />
+            <button
+              onClick={onToggleDarkMode}
+              className="p-2 rounded-lg border border-black/10 bg-white text-[#E5004F] transition-colors hover:bg-[#E5004F]/5 dark:bg-[#2a2732] dark:border-white/10"
+              title={isDarkMode ? "切换到浅色模式" : "切换到深色模式"}
+            >
+              {isDarkMode ? <Moon className="w-6 h-6 text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]" fill="currentColor" /> : <Sun className="w-6 h-6 text-[#E5004F]" />}
+            </button>
+          </div>
         </div>
       </div>
     </header>

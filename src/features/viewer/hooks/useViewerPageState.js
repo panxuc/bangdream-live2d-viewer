@@ -4,9 +4,10 @@ import * as PIXI from "pixi.js";
 import JSZip from "jszip";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXTERNAL_URLS, PUBLIC_ASSET_PATHS, getViewerModelApiBase } from "@/src/config/urls";
+import { loadPublicScript } from "@/src/lib/loadPublicScript";
 
 export const BRAND_PINK = "#E5004F";
-export const MAX_MODELS = 16;
+export const MAX_MODELS = 32;
 
 const DEFAULT_MODEL_ID = "default-1";
 const EMPTY_MODEL = {
@@ -158,21 +159,6 @@ const decodeZipFileName = (bytes) => {
 let libarchiveRuntimePromise = null;
 let sevenZipRuntimePromise = null;
 
-const loadBrowserScript = (src) =>
-  new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = true;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-
 const createLibarchiveApi = (module) => {
   const cwrap = module.cwrap.bind(module);
   return {
@@ -197,7 +183,7 @@ const loadLibarchiveRuntime = async () => {
       throw new Error("Archive parser is only available in browser");
     }
 
-    await loadBrowserScript(PUBLIC_ASSET_PATHS.libarchiveScript);
+    await loadPublicScript(PUBLIC_ASSET_PATHS.libarchiveScript);
     if (typeof window.libarchive !== "function") {
       throw new Error("libarchive runtime failed to load");
     }
@@ -222,7 +208,7 @@ const loadSevenZipRuntime = async () => {
       throw new Error("7z parser is only available in browser");
     }
 
-    await loadBrowserScript(PUBLIC_ASSET_PATHS.sevenZipScript);
+    await loadPublicScript(PUBLIC_ASSET_PATHS.sevenZipScript);
     const sevenZipFactory = window.SevenZip;
     if (typeof sevenZipFactory !== "function") {
       throw new Error("7z-wasm runtime failed to load");
@@ -524,6 +510,67 @@ const collectModelCandidates = (entries) => {
   });
 };
 
+const deepCloneValue = (value) => {
+  if (typeof structuredClone === "function") {
+    try {
+      return structuredClone(value);
+    } catch {
+      // fallback below
+    }
+  }
+
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+};
+
+const toProcessedMotionGroups = (sourceJson, sourceBaseUrl) => {
+  const sourceMotionData = sourceJson?.FileReferences?.Motions || sourceJson?.motions || {};
+  const processedMotions = {};
+
+  Object.keys(sourceMotionData).forEach((groupName) => {
+    const motionList = sourceMotionData[groupName];
+    if (!Array.isArray(motionList)) return;
+
+    processedMotions[groupName] = motionList.map((motion) => {
+      const nextMotion = { ...motion };
+
+      if (nextMotion.file) {
+        nextMotion.file = new URL(nextMotion.file, window.location.origin + sourceBaseUrl).href;
+      }
+      if (nextMotion.File) {
+        nextMotion.File = new URL(nextMotion.File, window.location.origin + sourceBaseUrl).href;
+      }
+      if (nextMotion.sound) {
+        nextMotion.sound = new URL(nextMotion.sound, window.location.origin + sourceBaseUrl).href;
+      }
+      if (nextMotion.Sound) {
+        nextMotion.Sound = new URL(nextMotion.Sound, window.location.origin + sourceBaseUrl).href;
+      }
+
+      return nextMotion;
+    });
+  });
+
+  return processedMotions;
+};
+
+const applyProcessedMotions = (targetJson, targetBaseUrl, processedMotions) => {
+  const hybridModelData = {
+    ...targetJson,
+    url: targetBaseUrl,
+  };
+
+  if (hybridModelData.FileReferences && hybridModelData.FileReferences.Motions !== undefined) {
+    hybridModelData.FileReferences = {
+      ...hybridModelData.FileReferences,
+      Motions: processedMotions,
+    };
+  } else {
+    hybridModelData.motions = processedMotions;
+  }
+
+  return hybridModelData;
+};
+
 export function useViewerPageState() {
   const [models, setModels] = useState([createModel(DEFAULT_MODEL_ID)]);
   const [activeModelId, setActiveModelId] = useState(DEFAULT_MODEL_ID);
@@ -569,6 +616,43 @@ export function useViewerPageState() {
     [activeModelId],
   );
 
+  const fetchBuildDataAsset = useCallback(async (modelId, isModified) => {
+    const modelBaseUrl = getViewerModelApiBase(modelId, isModified);
+    const buildDataUrl = `${modelBaseUrl}buildData.asset`;
+    const res = await fetch(buildDataUrl);
+    if (!res.ok) throw new Error("Failed to fetch model data");
+    const json = await res.json();
+    return { json, baseUrl: modelBaseUrl };
+  }, []);
+
+  const buildBorrowingPatchForModel = useCallback(
+    async (targetModel, sourceCharId, sourceModelId, processedMotions) => {
+      const isLocalTarget = targetModel.modelSource === "local" && !!targetModel.localModelData;
+      if (!isLocalTarget && !targetModel.modelId) return null;
+
+      let targetJson;
+      let targetBaseUrl = "";
+      if (isLocalTarget) {
+        targetJson = JSON.parse(JSON.stringify(targetModel.localModelData));
+      } else {
+        const remoteData = await fetchBuildDataAsset(targetModel.modelId, targetModel.isModified);
+        targetJson = remoteData.json;
+        targetBaseUrl = remoteData.baseUrl;
+      }
+
+      const hybridModelData = applyProcessedMotions(targetJson, targetBaseUrl, processedMotions);
+      return {
+        customModelData: hybridModelData,
+        modelData: toControlModelData(hybridModelData),
+        motion: null,
+        borrowedModelId: sourceModelId,
+        borrowedCharId: sourceCharId,
+        isBorrowingMotion: true,
+      };
+    },
+    [fetchBuildDataAsset],
+  );
+
   const handleAddModel = useCallback(() => {
     if (models.length >= MAX_MODELS) return;
 
@@ -576,6 +660,42 @@ export function useViewerPageState() {
     setModels((prev) => [...prev, createModel(newId)]);
     setActiveModelId(newId);
   }, [models.length]);
+
+  const handleDuplicateModel = useCallback(
+    (idToDuplicate) => {
+      if (models.length >= MAX_MODELS) return;
+
+      const sourceIndex = models.findIndex((m) => m.id === idToDuplicate);
+      if (sourceIndex === -1) return;
+
+      const sourceModel = models[sourceIndex];
+      const newId = `model-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const duplicatedModel = {
+        ...sourceModel,
+        id: newId,
+        modelData: deepCloneValue(sourceModel.modelData),
+        customModelData: deepCloneValue(sourceModel.customModelData),
+        localModelData: deepCloneValue(sourceModel.localModelData),
+        localModelCandidates: deepCloneValue(sourceModel.localModelCandidates),
+      };
+
+      setModels((prev) => {
+        const currentSourceIndex = prev.findIndex((m) => m.id === idToDuplicate);
+        if (currentSourceIndex === -1 || prev.length >= MAX_MODELS) return prev;
+        const next = [...prev];
+        next.splice(currentSourceIndex + 1, 0, duplicatedModel);
+        return next;
+      });
+
+      const sourceArchive = localArchivesRef.current.get(idToDuplicate);
+      if (sourceArchive) {
+        localArchivesRef.current.set(newId, sourceArchive);
+      }
+
+      setActiveModelId(newId);
+    },
+    [models],
+  );
 
   const handleRemoveModel = useCallback(
     (idToRemove) => {
@@ -613,6 +733,21 @@ export function useViewerPageState() {
     },
     [],
   );
+
+  const handleReorderModels = useCallback((draggedId, targetId) => {
+    if (!draggedId || !targetId || draggedId === targetId) return;
+
+    setModels((prev) => {
+      const fromIndex = prev.findIndex((model) => model.id === draggedId);
+      const toIndex = prev.findIndex((model) => model.id === targetId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+
+      const next = [...prev];
+      const [dragged] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, dragged);
+      return next;
+    });
+  }, []);
 
   const handleCharacterSelect = useCallback(
     (value) => {
@@ -675,80 +810,16 @@ export function useViewerPageState() {
       }
 
       try {
-        const currentModelId = activeModel.modelId;
-        const isLocalTarget = activeModel.modelSource === "local" && !!activeModel.localModelData;
-        if (!isLocalTarget && !currentModelId) return;
-
-        const sourceBaseUrl = getViewerModelApiBase(sourceModelId, false);
-        const sourceDataUrl = `${sourceBaseUrl}buildData.asset`;
-        let targetJson;
-        let targetBaseUrl = "";
-
-        if (isLocalTarget) {
-          targetJson = JSON.parse(JSON.stringify(activeModel.localModelData));
-        } else {
-          targetBaseUrl = getViewerModelApiBase(currentModelId, activeModel.isModified);
-          const targetDataUrl = `${targetBaseUrl}buildData.asset`;
-          const targetRes = await fetch(targetDataUrl);
-          if (!targetRes.ok) throw new Error("Failed to fetch target model data");
-          targetJson = await targetRes.json();
-        }
-
-        const sourceRes = await fetch(sourceDataUrl);
-        if (!sourceRes.ok) throw new Error("Failed to fetch source model data");
-        const sourceJson = await sourceRes.json();
-
-        const sourceMotionData = sourceJson?.FileReferences?.Motions || sourceJson?.motions || {};
-        const processedMotions = {};
-        Object.keys(sourceMotionData).forEach((groupName) => {
-          const motionList = sourceMotionData[groupName];
-          if (!Array.isArray(motionList)) return;
-
-          processedMotions[groupName] = motionList.map((motion) => {
-            const nextMotion = { ...motion };
-
-            if (nextMotion.file) {
-              nextMotion.file = new URL(nextMotion.file, window.location.origin + sourceBaseUrl).href;
-            }
-            if (nextMotion.File) {
-              nextMotion.File = new URL(nextMotion.File, window.location.origin + sourceBaseUrl).href;
-            }
-            if (nextMotion.sound) {
-              nextMotion.sound = new URL(nextMotion.sound, window.location.origin + sourceBaseUrl).href;
-            }
-            if (nextMotion.Sound) {
-              nextMotion.Sound = new URL(nextMotion.Sound, window.location.origin + sourceBaseUrl).href;
-            }
-
-            return nextMotion;
-          });
-        });
-
-        const hybridModelData = {
-          ...targetJson,
-          url: targetBaseUrl,
-        };
-        if (hybridModelData.FileReferences && hybridModelData.FileReferences.Motions !== undefined) {
-          hybridModelData.FileReferences = {
-            ...hybridModelData.FileReferences,
-            Motions: processedMotions,
-          };
-        } else {
-          hybridModelData.motions = processedMotions;
-        }
-
-        updateActiveModel({
-          customModelData: hybridModelData,
-          modelData: toControlModelData(hybridModelData),
-          motion: null,
-          borrowedModelId: sourceModelId,
-          borrowedCharId: sourceCharId,
-        });
+        const sourceData = await fetchBuildDataAsset(sourceModelId, false);
+        const processedMotions = toProcessedMotionGroups(sourceData.json, sourceData.baseUrl);
+        const patch = await buildBorrowingPatchForModel(activeModel, sourceCharId, sourceModelId, processedMotions);
+        if (!patch) return;
+        updateActiveModel(patch);
       } catch (error) {
         console.error("Motion override failed:", error);
       }
     },
-    [activeModel, updateActiveModel],
+    [activeModel, updateActiveModel, fetchBuildDataAsset, buildBorrowingPatchForModel],
   );
 
   const handleBorrowingToggle = useCallback(() => {
@@ -765,6 +836,33 @@ export function useViewerPageState() {
     },
     [updateActiveModel],
   );
+
+  const handleApplyBorrowingToAllLayers = useCallback(async () => {
+    const sourceCharId = activeModel.borrowedCharId;
+    const sourceModelId = activeModel.borrowedModelId;
+    if (!sourceCharId || !sourceModelId) return;
+
+    try {
+      const sourceData = await fetchBuildDataAsset(sourceModelId, false);
+      const processedMotions = toProcessedMotionGroups(sourceData.json, sourceData.baseUrl);
+
+      const updates = await Promise.all(
+        models.map(async (model) => {
+          const patch = await buildBorrowingPatchForModel(model, sourceCharId, sourceModelId, processedMotions);
+          return patch ? { id: model.id, patch } : null;
+        }),
+      );
+
+      const patchMap = new Map(updates.filter(Boolean).map((entry) => [entry.id, entry.patch]));
+      if (patchMap.size === 0) return;
+
+      setModels((prev) =>
+        prev.map((model) => (patchMap.has(model.id) ? { ...model, ...patchMap.get(model.id) } : model)),
+      );
+    } catch (error) {
+      console.error("Apply borrowing to all layers failed:", error);
+    }
+  }, [activeModel.borrowedCharId, activeModel.borrowedModelId, fetchBuildDataAsset, buildBorrowingPatchForModel, models]);
 
   const handleExpressionSelect = useCallback(
     (value) => {
@@ -1068,8 +1166,10 @@ export function useViewerPageState() {
     setBackgroundColor,
     setIsBatching,
     handleAddModel,
+    handleDuplicateModel,
     handleRemoveModel,
     handleMoveModel,
+    handleReorderModels,
     handleCharacterSelect,
     handleModelSelect,
     handleModelSourceChange,
@@ -1077,6 +1177,7 @@ export function useViewerPageState() {
     handleMotionSelect,
     handleMotionOverride,
     handleBorrowingToggle,
+    handleApplyBorrowingToAllLayers,
     handleSourceCharChange,
     handleExpressionSelect,
     handleModelReload,

@@ -5,7 +5,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { useState, useCallback, memo, useMemo, useRef } from "react";
 import { Camera, Image as ImageIcon, Scaling, Check, Layers, Loader2, StopCircle, Pencil } from "lucide-react";
-import * as PIXI from "pixi.js";
 
 const BACKGROUND_OPTIONS = [
   { id: 'transparent', color: 'transparent', label: '透明', border: 'border-gray-200' },
@@ -58,27 +57,30 @@ const SaveButton = memo(function SaveButton({
     finalCanvas.width = targetSize;
     finalCanvas.height = targetSize;
     const ctx = finalCanvas.getContext('2d');
+    if (!ctx) return;
 
     if (backgroundColor && backgroundColor !== 'transparent') {
       ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, targetSize, targetSize);
     }
 
-    // Snapshot exactly the currently visible canvas viewport.
-    const viewportWidth = app.renderer.width || 400;
-    const viewportHeight = app.renderer.height || 400;
-    const renderTexture = PIXI.RenderTexture.create({
-      width: viewportWidth,
-      height: viewportHeight,
-    });
-
+    // Force a fresh render and wait two RAF ticks so complex models settle
+    // before snapshot, then capture directly from the visible canvas.
     try {
-      app.renderer.render(app.stage, { renderTexture, clear: true });
-      const extractedCanvas = app.renderer.plugins.extract.canvas(renderTexture);
-      ctx.drawImage(extractedCanvas, 0, 0, viewportWidth, viewportHeight, 0, 0, targetSize, targetSize);
-    } finally {
-      renderTexture.destroy(true);
+      app.renderer.render(app.stage);
+    } catch {
+      // best effort render
     }
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const sourceCanvas = app.canvas || app.view;
+    const viewportWidth = sourceCanvas?.width || app.renderer.width || 400;
+    const viewportHeight = sourceCanvas?.height || app.renderer.height || 400;
+    if (!sourceCanvas || viewportWidth <= 0 || viewportHeight <= 0) return;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(sourceCanvas, 0, 0, viewportWidth, viewportHeight, 0, 0, targetSize, targetSize);
 
     return new Promise((resolve) => {
       finalCanvas.toBlob((blob) => {

@@ -1,0 +1,123 @@
+"use client";
+
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  CircleHelp,
+  Compass,
+  Download,
+  FolderUp,
+  Info,
+  Layers,
+  Loader,
+  MousePointerClick,
+  MoveHorizontal,
+  MoveVertical,
+  Move,
+  RefreshCw,
+  Plus,
+  ShieldAlert,
+  Shirt,
+  Shuffle,
+  Skull,
+  Sparkles,
+  SquareStack,
+  Sun,
+  ListTodo,
+  Trash2,
+  Upload,
+  Wifi,
+  Moon,
+  Wand2,
+} from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+
+const sections = [
+  {
+    id: "info",
+    title: "关于本站",
+    icon: Info,
+    items: [
+      [{ icon: Wifi }, "基础模型来自于 Bestdori 网站的游戏解包资源，本站不定期对相关资源进行备份。"],
+      [{ icon: Wifi }, "改模模型大部分来自于社区的用户自制资源。本站仅提供展示功能。"],
+      [{ icon: Wifi }, "少数改模模型为 [@各務砂雪] 的个人创作，未经授权请勿转载。"],
+      [{ icon: FolderUp }, "本地上传功能支持用户导入自己手头的 Live2D 模型文件，文件不会被上传到服务器，完全在浏览器本地处理。"],
+      [{ icon: Info }, "由于 Live2D 模型的复杂性和多样性，无法保证所有模型都能完美兼容和显示效果良好。"],
+      [{ icon: CircleHelp }, "如果你有任何问题或建议，欢迎在 NGA 联系 [@各務砂雪] (UID 66691870)。"],
+    ],
+  },
+  {
+    id: "todo",
+    title: "TODO",
+    icon: ListTodo,
+    items: [
+      ["待更新"],
+    ],
+  },
+];
+
+const InlineIcon = ({ icon: Icon }) => (
+  <span className="inline-flex items-center align-middle mx-0.5">
+    <Icon className="w-3.5 h-3.5 text-[#E5004F]" />
+  </span>
+);
+
+export function HelpSheet() {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <button
+          type="button"
+          className="px-3 h-10 inline-flex items-center gap-1.5 rounded-lg border border-black/10 bg-white text-sm font-semibold text-[#E5004F] transition-colors hover:bg-[#E5004F]/5 dark:bg-[#2a2732] dark:border-white/10"
+          title="查看帮助"
+        >
+          <BookOpen className="w-4 h-4" />
+          帮助
+        </button>
+      </SheetTrigger>
+      <SheetContent side="right" className="w-[min(92vw,880px)] sm:max-w-[880px] p-0">
+        <SheetHeader className="border-b border-black/5 dark:border-white/10 px-5 py-4">
+          <SheetTitle className="text-[#E5004F] text-lg">帮助中心</SheetTitle>
+          <SheetDescription>BanG Dream! Live2D 查看器使用说明</SheetDescription>
+        </SheetHeader>
+
+        <div className="overflow-y-auto px-5 py-4 space-y-4">
+          {sections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <section key={section.id} className="rounded-xl border border-black/8 dark:border-white/10 bg-white/80 dark:bg-[#24192f]/60 p-4">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Icon className="w-4 h-4 text-[#E5004F]" />
+                  <h3 className="font-bold text-sm md:text-base">{section.title}</h3>
+                </div>
+                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                  {section.items.map((item, itemIndex) => (
+                    <li key={`${section.id}-${itemIndex}`} className="leading-6">
+                      <span className="inline-flex flex-wrap items-center">
+                        {item.map((part, partIndex) =>
+                          typeof part === "string" ? (
+                            <span key={`${section.id}-${itemIndex}-${partIndex}`}>{part}</span>
+                          ) : (
+                            <InlineIcon key={`${section.id}-${itemIndex}-${partIndex}`} icon={part.icon} />
+                          ),
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}

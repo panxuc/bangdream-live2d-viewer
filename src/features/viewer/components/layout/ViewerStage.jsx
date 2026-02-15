@@ -12,17 +12,19 @@ export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, o
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-full max-w-4xl aspect-[3/4] md:aspect-video lg:aspect-square xl:aspect-[4/3]">
-        <div className="relative h-full panel-glass overflow-hidden flex flex-col">
-          <div className="h-9 bg-white/70 dark:bg-[#26222d] flex items-center px-4 space-x-2 justify-between border-b border-black/5 dark:border-white/10">
-            <div className="flex space-x-2">
+      <div className="relative w-full max-w-[400px]">
+        <div className="relative panel-glass overflow-hidden">
+          <div className="h-9 bg-white/70 dark:bg-[#26222d] flex items-center px-4 justify-between border-b border-black/5 dark:border-white/10">
+            <div className="flex gap-2">
               <div className="w-2 h-2 rounded-full bg-[#E5004F]/75" />
               <div className="w-2 h-2 rounded-full bg-yellow-400/75" />
               <div className="w-2 h-2 rounded-full bg-blue-400/75" />
             </div>
-            <div className="text-[10px] font-medium text-gray-500 dark:text-gray-300">当前激活 {activeCount} 个模型</div>
+            <div className="text-[10px] font-medium text-gray-500 dark:text-gray-300">
+              当前激活 {activeCount} 个模型
+            </div>
           </div>
-          <div className="flex-1 relative bg-white/40 dark:bg-[#1b1821]">
+          <div className="relative bg-white/40 dark:bg-[#1b1821]">
             <Live2DCanvas ref={canvasRef} models={models} onModelLoad={onModelLoad} onSyncComplete={onSyncComplete} backgroundColor={backgroundColor} />
             {!activeCount && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-gray-500 dark:text-gray-300 pointer-events-none">

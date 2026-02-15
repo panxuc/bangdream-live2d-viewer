@@ -4,6 +4,7 @@ import { useEffect, useRef, useImperativeHandle, forwardRef, useState } from "re
 import * as PIXI from "pixi.js";
 import { Loader2, Music } from "lucide-react";
 import { PUBLIC_ASSET_PATHS, getViewerModelApiBase } from "@/src/config/urls";
+import { loadPublicScript } from "@/src/lib/loadPublicScript";
 
 let coreLoadPromise = null;
 const CANVAS_SIZE = 400;
@@ -17,27 +18,12 @@ const STABILITY_SCREEN_CHANGE_TOLERANCE = 0.001;
 const STABILITY_WARMUP_MS = 500;
 const STABILITY_TIMEOUT_MS = 20000;
 
-const loadScript = (src) =>
-  new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = true;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-
 const loadLive2DCore = () => {
   if (typeof window === "undefined") return Promise.resolve();
   if (coreLoadPromise) return coreLoadPromise;
 
   const scripts = PUBLIC_ASSET_PATHS.live2dScripts;
-  coreLoadPromise = Promise.all(scripts.map(loadScript)).catch((error) => {
+  coreLoadPromise = Promise.all(scripts.map(loadPublicScript)).catch((error) => {
     coreLoadPromise = null;
     throw error;
   });
@@ -411,15 +397,16 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
   const hasLoading = Object.values(loadingStates).some(v => v);
 
   return (
-    <div className="flex items-center justify-center w-full h-full">
-      <div className="relative group">
+    <div className="flex items-center justify-center w-full">
+      <div className="relative group w-full">
         <canvas
           ref={canvasRef}
           width={CANVAS_SIZE}
           height={CANVAS_SIZE}
           style={{
-            width: `${CANVAS_SIZE}px`,
-            height: `${CANVAS_SIZE}px`,
+            width: "100%",
+            maxWidth: `${CANVAS_SIZE}px`,
+            height: "auto",
             backgroundColor: backgroundColor === "transparent" ? "transparent" : backgroundColor,
           }}
           className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"

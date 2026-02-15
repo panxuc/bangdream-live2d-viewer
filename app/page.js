@@ -59,8 +59,10 @@ export default function Home() {
                 maxModels={MAX_MODELS}
                 setActiveModelId={state.setActiveModelId}
                 handleAddModel={state.handleAddModel}
+                handleDuplicateModel={state.handleDuplicateModel}
                 handleRemoveModel={state.handleRemoveModel}
                 handleMoveModel={state.handleMoveModel}
+                handleReorderModels={state.handleReorderModels}
                 handleCharacterSelect={state.handleCharacterSelect}
                 handleModelSelect={state.handleModelSelect}
                 handleModelSourceChange={state.handleModelSourceChange}
@@ -69,6 +71,7 @@ export default function Home() {
                 handleHeadlessChange={state.handleHeadlessChange}
                 handleModifiedChange={state.handleModifiedChange}
                 handleBorrowingToggle={state.handleBorrowingToggle}
+                handleApplyBorrowingToAllLayers={state.handleApplyBorrowingToAllLayers}
                 handleMotionSelect={state.handleMotionSelect}
                 handleMotionOverride={state.handleMotionOverride}
                 handleSourceCharChange={state.handleSourceCharChange}
@@ -102,8 +105,10 @@ export default function Home() {
               maxModels={MAX_MODELS}
               setActiveModelId={state.setActiveModelId}
               handleAddModel={state.handleAddModel}
+              handleDuplicateModel={state.handleDuplicateModel}
               handleRemoveModel={state.handleRemoveModel}
               handleMoveModel={state.handleMoveModel}
+              handleReorderModels={state.handleReorderModels}
               handleCharacterSelect={state.handleCharacterSelect}
               handleModelSelect={state.handleModelSelect}
               handleModelSourceChange={state.handleModelSourceChange}
@@ -112,6 +117,7 @@ export default function Home() {
               handleHeadlessChange={state.handleHeadlessChange}
               handleModifiedChange={state.handleModifiedChange}
               handleBorrowingToggle={state.handleBorrowingToggle}
+              handleApplyBorrowingToAllLayers={state.handleApplyBorrowingToAllLayers}
               handleMotionSelect={state.handleMotionSelect}
               handleMotionOverride={state.handleMotionOverride}
               handleSourceCharChange={state.handleSourceCharChange}

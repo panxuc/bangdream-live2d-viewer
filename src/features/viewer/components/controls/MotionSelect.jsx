@@ -1,7 +1,7 @@
 "use client";
 
 import { SelectItem } from "@/components/ui/select";
-import { Clapperboard } from "lucide-react";
+import { Clapperboard, Layers } from "lucide-react";
 import { CharacterSelect } from "./CharacterSelect";
 import { ModelSelect } from "./ModelSelect";
 import { SelectField, selectItemClass } from "./shared/SelectField";
@@ -15,7 +15,8 @@ export const MotionSelect = ({
   isBorrowing,
   borrowedCharId,
   borrowedModelId,
-  onSourceCharChange
+  onSourceCharChange,
+  onApplyToAllLayers,
 }) => {
 
   // 提取动作列表
@@ -59,6 +60,23 @@ export const MotionSelect = ({
             disabled={disabled || !borrowedCharId}
             showReload={false}
           />
+
+          <button
+            type="button"
+            onClick={() => onApplyToAllLayers?.()}
+            disabled={disabled || !borrowedCharId || !borrowedModelId}
+            className={`w-full h-11 rounded-xl border px-3 transition-all ${
+              disabled || !borrowedCharId || !borrowedModelId
+                ? "border-[#E5004F]/20 text-gray-400 cursor-not-allowed opacity-60"
+                : "border-[#E5004F]/35 bg-[#E5004F]/5 text-[#E5004F] hover:bg-[#E5004F]/12"
+            }`}
+            title="将当前动作借用设置应用到所有图层"
+          >
+            <span className="relative flex items-center justify-center w-full">
+              <Layers className="absolute left-0 w-4 h-4 opacity-80" />
+              <span className="text-sm font-semibold text-center">应用到所有图层</span>
+            </span>
+          </button>
         </div>
       )}
     </div>
