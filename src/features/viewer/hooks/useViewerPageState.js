@@ -1128,6 +1128,7 @@ export function useViewerPageState() {
           localModelCandidates: candidates,
           localModelPath: null,
           localModelData: null,
+          customModelData: null,
           localModelLabel: null,
           localModelError: null,
           modelData: null,
@@ -1297,6 +1298,7 @@ export function useViewerPageState() {
       updateActiveModel({
         modelSource: "local",
         localModelData: rewrittenData,
+        customModelData: null,
         modelData: toControlModelData(rewrittenData),
         motion: null,
         expression: null,
