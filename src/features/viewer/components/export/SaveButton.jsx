@@ -28,6 +28,8 @@ const SaveButton = memo(function SaveButton({
   const [isBatching, setIsBatching] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentName: '' });
   const abortControllerRef = useRef(null);
+  const exportCanvasRef = useRef(null);
+  const downloadLinkRef = useRef(null);
 
   const getFileName = useCallback((motionGroup, expression) => {
     const clean = (str) => str ? str.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '') : '';
@@ -53,53 +55,34 @@ const SaveButton = memo(function SaveButton({
     if (!app || !app.renderer) return;
 
     const targetSize = parseInt(imageSize, 10);
-    const finalCanvas = document.createElement('canvas');
+    if (!Number.isFinite(targetSize) || targetSize <= 0) return;
+    const rawCanvas = app.view || app.canvas;
+    if (!rawCanvas) return;
+
+    const finalCanvas = exportCanvasRef.current || document.createElement('canvas');
+    exportCanvasRef.current = finalCanvas;
     finalCanvas.width = targetSize;
     finalCanvas.height = targetSize;
     const ctx = finalCanvas.getContext('2d');
     if (!ctx) return;
 
+    ctx.clearRect(0, 0, targetSize, targetSize);
     if (backgroundColor && backgroundColor !== 'transparent') {
       ctx.fillStyle = backgroundColor;
       ctx.fillRect(0, 0, targetSize, targetSize);
     }
 
-    // Force a fresh render and wait two RAF ticks so complex models settle
-    // before snapshot, then capture directly from the visible canvas.
-    try {
-      app.renderer.render(app.stage);
-    } catch {
-      // best effort render
-    }
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-    let captureCanvas = null;
-    try {
-      const extractCanvas = app.renderer?.plugins?.extract?.canvas;
-      if (typeof extractCanvas === 'function') {
-        captureCanvas = extractCanvas(app.stage);
-      }
-    } catch {
-      captureCanvas = null;
-    }
-
-    if (!captureCanvas) {
-      captureCanvas = app.canvas || app.view || null;
-    }
-
-    const viewportWidth = captureCanvas?.width || app.renderer.width || 400;
-    const viewportHeight = captureCanvas?.height || app.renderer.height || 400;
-    if (!captureCanvas || viewportWidth <= 0 || viewportHeight <= 0) return;
-
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(captureCanvas, 0, 0, viewportWidth, viewportHeight, 0, 0, targetSize, targetSize);
+    const srcW = rawCanvas.width || app.renderer.width || 400;
+    const srcH = rawCanvas.height || app.renderer.height || 400;
+    if (srcW <= 0 || srcH <= 0) return;
+    ctx.drawImage(rawCanvas, 0, 0, srcW, srcH, 0, 0, targetSize, targetSize);
 
     return new Promise((resolve) => {
       finalCanvas.toBlob((blob) => {
         if (blob) {
           const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
+          const link = downloadLinkRef.current || document.createElement('a');
+          downloadLinkRef.current = link;
           link.download = fileNameOverride;
           link.href = url;
           document.body.appendChild(link);
@@ -147,7 +130,11 @@ const SaveButton = memo(function SaveButton({
 
         setBatchProgress({ current: i + 2, total: totalSteps, currentName: group });
         canvasRef.current.internalPlayMotion(group);
-        await canvasRef.current.waitUntilStable(signal);
+        if (canvasRef.current?.waitUntilStable) {
+          await canvasRef.current.waitUntilStable(signal);
+        } else {
+          await new Promise((r) => setTimeout(r, 1000));
+        }
 
         if (signal.aborted) throw new Error("Cancelled");
         const batchFileName = getFileName(group, null);

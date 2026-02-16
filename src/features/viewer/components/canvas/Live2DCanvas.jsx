@@ -243,7 +243,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
           resolution: 1,
           autoDensity: false,
           resizeTo: null,
-          preserveDrawingBuffer: false,
+          preserveDrawingBuffer: true,
         });
         app.ticker.maxFPS = 30;
         app.stage.sortableChildren = true;
