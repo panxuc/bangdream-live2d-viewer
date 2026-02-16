@@ -12,7 +12,7 @@ export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, o
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-full max-w-[400px]">
+      <div className="relative w-full max-w-[520px]">
         <div className="relative panel-glass overflow-hidden">
           <div className="h-9 bg-white/70 dark:bg-[#26222d] flex items-center px-4 justify-between border-b border-black/5 dark:border-white/10">
             <div className="flex gap-2">

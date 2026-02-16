@@ -8,6 +8,7 @@ import { loadPublicScript } from "@/src/lib/loadPublicScript";
 
 let coreLoadPromise = null;
 const CANVAS_SIZE = 400;
+const DISPLAY_CANVAS_MAX_SIZE = 520;
 const DEFAULT_MODEL_SCALE = 0.25;
 const MODEL_MASK_TEXTURE = PUBLIC_ASSET_PATHS.modelMaskTexture;
 const STABILITY_CHECK_INTERVAL = 50;
@@ -405,7 +406,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
           height={CANVAS_SIZE}
           style={{
             width: "100%",
-            maxWidth: `${CANVAS_SIZE}px`,
+            maxWidth: `${DISPLAY_CANVAS_MAX_SIZE}px`,
             height: "auto",
             backgroundColor: backgroundColor === "transparent" ? "transparent" : backgroundColor,
           }}

@@ -73,14 +73,27 @@ const SaveButton = memo(function SaveButton({
     }
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-    const sourceCanvas = app.canvas || app.view;
-    const viewportWidth = sourceCanvas?.width || app.renderer.width || 400;
-    const viewportHeight = sourceCanvas?.height || app.renderer.height || 400;
-    if (!sourceCanvas || viewportWidth <= 0 || viewportHeight <= 0) return;
+    let captureCanvas = null;
+    try {
+      const extractCanvas = app.renderer?.plugins?.extract?.canvas;
+      if (typeof extractCanvas === 'function') {
+        captureCanvas = extractCanvas(app.stage);
+      }
+    } catch {
+      captureCanvas = null;
+    }
+
+    if (!captureCanvas) {
+      captureCanvas = app.canvas || app.view || null;
+    }
+
+    const viewportWidth = captureCanvas?.width || app.renderer.width || 400;
+    const viewportHeight = captureCanvas?.height || app.renderer.height || 400;
+    if (!captureCanvas || viewportWidth <= 0 || viewportHeight <= 0) return;
 
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(sourceCanvas, 0, 0, viewportWidth, viewportHeight, 0, 0, targetSize, targetSize);
+    ctx.drawImage(captureCanvas, 0, 0, viewportWidth, viewportHeight, 0, 0, targetSize, targetSize);
 
     return new Promise((resolve) => {
       finalCanvas.toBlob((blob) => {
