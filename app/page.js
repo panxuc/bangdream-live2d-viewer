@@ -75,6 +75,9 @@ export default function Home() {
                 handleMotionSelect={state.handleMotionSelect}
                 handleMotionOverride={state.handleMotionOverride}
                 handleSourceCharChange={state.handleSourceCharChange}
+                handleExpressionOverride={state.handleExpressionOverride}
+                handleExpressionBorrowingToggle={state.handleExpressionBorrowingToggle}
+                handleExpressionSourceCharChange={state.handleExpressionSourceCharChange}
                 handleExpressionSelect={state.handleExpressionSelect}
                 handleTransformChange={state.handleTransformChange}
                 handleLocalArchiveUpload={state.handleLocalArchiveUpload}
@@ -121,6 +124,9 @@ export default function Home() {
               handleMotionSelect={state.handleMotionSelect}
               handleMotionOverride={state.handleMotionOverride}
               handleSourceCharChange={state.handleSourceCharChange}
+              handleExpressionOverride={state.handleExpressionOverride}
+              handleExpressionBorrowingToggle={state.handleExpressionBorrowingToggle}
+              handleExpressionSourceCharChange={state.handleExpressionSourceCharChange}
               handleExpressionSelect={state.handleExpressionSelect}
               handleTransformChange={state.handleTransformChange}
               handleLocalArchiveUpload={state.handleLocalArchiveUpload}

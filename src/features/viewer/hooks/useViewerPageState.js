@@ -22,6 +22,9 @@ const EMPTY_MODEL = {
   borrowedModelId: null,
   borrowedCharId: null,
   isBorrowingMotion: false,
+  borrowedExpressionModelId: null,
+  borrowedExpressionCharId: null,
+  isBorrowingExpression: false,
   x: 0,
   y: 0,
   scale: 0.25,
@@ -46,6 +49,9 @@ const RESET_ON_CHARACTER_CHANGE = {
   borrowedModelId: null,
   borrowedCharId: null,
   isBorrowingMotion: false,
+  borrowedExpressionModelId: null,
+  borrowedExpressionCharId: null,
+  isBorrowingExpression: false,
   localModelError: null,
 };
 
@@ -56,6 +62,10 @@ const RESET_ON_MODEL_CHANGE = {
   expression: null,
   borrowedModelId: null,
   borrowedCharId: null,
+  isBorrowingMotion: false,
+  borrowedExpressionModelId: null,
+  borrowedExpressionCharId: null,
+  isBorrowingExpression: false,
   localModelError: null,
 };
 
@@ -70,6 +80,9 @@ const RESET_ON_SOURCE_CHANGE = {
   borrowedModelId: null,
   borrowedCharId: null,
   isBorrowingMotion: false,
+  borrowedExpressionModelId: null,
+  borrowedExpressionCharId: null,
+  isBorrowingExpression: false,
   isModified: false,
   isHeadless: false,
   isBodyless: false,
@@ -553,6 +566,24 @@ const toProcessedMotionGroups = (sourceJson, sourceBaseUrl) => {
   return processedMotions;
 };
 
+const toProcessedExpressions = (sourceJson, sourceBaseUrl) => {
+  const sourceExpressions = sourceJson?.FileReferences?.Expressions || sourceJson?.expressions || [];
+  if (!Array.isArray(sourceExpressions)) return [];
+
+  return sourceExpressions
+    .map((expression) => {
+      const nextExpression = { ...expression };
+      if (nextExpression.File) {
+        nextExpression.File = new URL(nextExpression.File, window.location.origin + sourceBaseUrl).href;
+      }
+      if (nextExpression.file) {
+        nextExpression.file = new URL(nextExpression.file, window.location.origin + sourceBaseUrl).href;
+      }
+      return nextExpression;
+    })
+    .filter((expression) => expression?.File || expression?.file);
+};
+
 const applyProcessedMotions = (targetJson, targetBaseUrl, processedMotions) => {
   const hybridModelData = {
     ...targetJson,
@@ -566,6 +597,30 @@ const applyProcessedMotions = (targetJson, targetBaseUrl, processedMotions) => {
     };
   } else {
     hybridModelData.motions = processedMotions;
+  }
+
+  return hybridModelData;
+};
+
+const applyProcessedExpressions = (targetJson, targetBaseUrl, processedExpressions) => {
+  const hybridModelData = {
+    ...targetJson,
+    url: targetBaseUrl,
+  };
+
+  if (hybridModelData.FileReferences && hybridModelData.FileReferences.Expressions !== undefined) {
+    hybridModelData.FileReferences = {
+      ...hybridModelData.FileReferences,
+      Expressions: processedExpressions.map((expression) => ({
+        Name: expression.Name || expression.name || getBaseName(expression.File || expression.file || ""),
+        File: expression.File || expression.file || "",
+      })),
+    };
+  } else {
+    hybridModelData.expressions = processedExpressions.map((expression) => ({
+      name: expression.name || expression.Name || getBaseName(expression.file || expression.File || ""),
+      file: expression.file || expression.File || "",
+    }));
   }
 
   return hybridModelData;
@@ -648,6 +703,55 @@ export function useViewerPageState() {
         borrowedModelId: sourceModelId,
         borrowedCharId: sourceCharId,
         isBorrowingMotion: true,
+      };
+    },
+    [fetchBuildDataAsset],
+  );
+
+  const buildCombinedOverridePatchForModel = useCallback(
+    async (targetModel, { motionSourceModelId = null, expressionSourceModelId = null } = {}) => {
+      const isLocalTarget = targetModel.modelSource === "local" && !!targetModel.localModelData;
+      if (!isLocalTarget && !targetModel.modelId) return null;
+
+      let targetJson;
+      let targetBaseUrl = "";
+      if (isLocalTarget) {
+        targetJson = JSON.parse(JSON.stringify(targetModel.localModelData));
+      } else {
+        const remoteData = await fetchBuildDataAsset(targetModel.modelId, targetModel.isModified);
+        targetJson = remoteData.json;
+        targetBaseUrl = remoteData.baseUrl;
+      }
+
+      const hasMotionOverride = !!motionSourceModelId;
+      const hasExpressionOverride = !!expressionSourceModelId;
+      if (!hasMotionOverride && !hasExpressionOverride) {
+        return {
+          customModelData: null,
+          modelData: isLocalTarget ? toControlModelData(targetModel.localModelData) : toControlModelData(targetJson),
+        };
+      }
+
+      let hybridModelData = {
+        ...targetJson,
+        url: targetBaseUrl,
+      };
+
+      if (hasMotionOverride) {
+        const motionSourceData = await fetchBuildDataAsset(motionSourceModelId, false);
+        const processedMotions = toProcessedMotionGroups(motionSourceData.json, motionSourceData.baseUrl);
+        hybridModelData = applyProcessedMotions(hybridModelData, targetBaseUrl, processedMotions);
+      }
+
+      if (hasExpressionOverride) {
+        const expressionSourceData = await fetchBuildDataAsset(expressionSourceModelId, false);
+        const processedExpressions = toProcessedExpressions(expressionSourceData.json, expressionSourceData.baseUrl);
+        hybridModelData = applyProcessedExpressions(hybridModelData, targetBaseUrl, processedExpressions);
+      }
+
+      return {
+        customModelData: hybridModelData,
+        modelData: toControlModelData(hybridModelData),
       };
     },
     [fetchBuildDataAsset],
@@ -798,28 +902,29 @@ export function useViewerPageState() {
 
   const handleMotionOverride = useCallback(
     async (sourceCharId, sourceModelId) => {
-      if (!sourceCharId || !sourceModelId) {
-        updateActiveModel({
-          customModelData: null,
-          modelData: activeModel.modelSource === "local" ? toControlModelData(activeModel.localModelData) : activeModel.modelData,
-          motion: null,
-          borrowedModelId: null,
-          borrowedCharId: null,
-        });
-        return;
-      }
-
       try {
-        const sourceData = await fetchBuildDataAsset(sourceModelId, false);
-        const processedMotions = toProcessedMotionGroups(sourceData.json, sourceData.baseUrl);
-        const patch = await buildBorrowingPatchForModel(activeModel, sourceCharId, sourceModelId, processedMotions);
+        const nextMotionModelId = sourceCharId && sourceModelId ? sourceModelId : null;
+        const nextMotionCharId = sourceCharId && sourceModelId ? sourceCharId : null;
+        const expressionModelId = activeModel.isBorrowingExpression ? activeModel.borrowedExpressionModelId : null;
+
+        const patch = await buildCombinedOverridePatchForModel(activeModel, {
+          motionSourceModelId: nextMotionModelId,
+          expressionSourceModelId: expressionModelId,
+        });
         if (!patch) return;
-        updateActiveModel(patch);
+
+        updateActiveModel({
+          ...patch,
+          motion: null,
+          borrowedModelId: nextMotionModelId,
+          borrowedCharId: nextMotionCharId,
+          isBorrowingMotion: Boolean(nextMotionModelId),
+        });
       } catch (error) {
         console.error("Motion override failed:", error);
       }
     },
-    [activeModel, updateActiveModel, fetchBuildDataAsset, buildBorrowingPatchForModel],
+    [activeModel, updateActiveModel, buildCombinedOverridePatchForModel],
   );
 
   const handleBorrowingToggle = useCallback(() => {
@@ -832,9 +937,71 @@ export function useViewerPageState() {
 
   const handleSourceCharChange = useCallback(
     (charId) => {
-      updateActiveModel({ borrowedCharId: charId, borrowedModelId: null });
+      const normalizedCharId = typeof charId === "string" ? charId.padStart(3, "0") : null;
+      const defaultBorrowedModelId = normalizedCharId ? `${normalizedCharId}_casual-2023` : null;
+
+      updateActiveModel({
+        borrowedCharId: charId,
+        borrowedModelId: defaultBorrowedModelId,
+      });
+
+      if (charId && defaultBorrowedModelId) {
+        handleMotionOverride(charId, defaultBorrowedModelId);
+      }
     },
-    [updateActiveModel],
+    [updateActiveModel, handleMotionOverride],
+  );
+
+  const handleExpressionOverride = useCallback(
+    async (sourceCharId, sourceModelId) => {
+      try {
+        const nextExpressionModelId = sourceCharId && sourceModelId ? sourceModelId : null;
+        const nextExpressionCharId = sourceCharId && sourceModelId ? sourceCharId : null;
+        const motionModelId = activeModel.isBorrowingMotion ? activeModel.borrowedModelId : null;
+
+        const patch = await buildCombinedOverridePatchForModel(activeModel, {
+          motionSourceModelId: motionModelId,
+          expressionSourceModelId: nextExpressionModelId,
+        });
+        if (!patch) return;
+
+        updateActiveModel({
+          ...patch,
+          expression: null,
+          borrowedExpressionModelId: nextExpressionModelId,
+          borrowedExpressionCharId: nextExpressionCharId,
+          isBorrowingExpression: Boolean(nextExpressionModelId),
+        });
+      } catch (error) {
+        console.error("Expression override failed:", error);
+      }
+    },
+    [activeModel, updateActiveModel, buildCombinedOverridePatchForModel],
+  );
+
+  const handleExpressionBorrowingToggle = useCallback(() => {
+    const nextState = !activeModel.isBorrowingExpression;
+    updateActiveModel({ isBorrowingExpression: nextState });
+    if (!nextState) {
+      handleExpressionOverride(null, null);
+    }
+  }, [activeModel.isBorrowingExpression, updateActiveModel, handleExpressionOverride]);
+
+  const handleExpressionSourceCharChange = useCallback(
+    (charId) => {
+      const normalizedCharId = typeof charId === "string" ? charId.padStart(3, "0") : null;
+      const defaultBorrowedExpressionModelId = normalizedCharId ? `${normalizedCharId}_casual-2023` : null;
+
+      updateActiveModel({
+        borrowedExpressionCharId: charId,
+        borrowedExpressionModelId: defaultBorrowedExpressionModelId,
+      });
+
+      if (charId && defaultBorrowedExpressionModelId) {
+        handleExpressionOverride(charId, defaultBorrowedExpressionModelId);
+      }
+    },
+    [updateActiveModel, handleExpressionOverride],
   );
 
   const handleApplyBorrowingToAllLayers = useCallback(async () => {
@@ -923,6 +1090,9 @@ export function useViewerPageState() {
         borrowedModelId: null,
         borrowedCharId: null,
         isBorrowingMotion: false,
+        borrowedExpressionModelId: null,
+        borrowedExpressionCharId: null,
+        isBorrowingExpression: false,
         customModelData: null,
         localModelError: null,
       });
@@ -966,6 +1136,9 @@ export function useViewerPageState() {
           borrowedModelId: null,
           borrowedCharId: null,
           isBorrowingMotion: false,
+          borrowedExpressionModelId: null,
+          borrowedExpressionCharId: null,
+          isBorrowingExpression: false,
         });
       } catch (error) {
         updateActiveModel({
@@ -1130,6 +1303,9 @@ export function useViewerPageState() {
         borrowedModelId: null,
         borrowedCharId: null,
         isBorrowingMotion: false,
+        borrowedExpressionModelId: null,
+        borrowedExpressionCharId: null,
+        isBorrowingExpression: false,
         localModelLabel: zipAndPathLabel,
         localModelError: null,
       });
@@ -1179,6 +1355,9 @@ export function useViewerPageState() {
     handleBorrowingToggle,
     handleApplyBorrowingToAllLayers,
     handleSourceCharChange,
+    handleExpressionOverride,
+    handleExpressionBorrowingToggle,
+    handleExpressionSourceCharChange,
     handleExpressionSelect,
     handleModelReload,
     handleCanvasSyncComplete,
