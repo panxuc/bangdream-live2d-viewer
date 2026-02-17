@@ -3,9 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "prebuild": "git submodule update --init --recursive && cd pixi-live2d-display && yarn install && yarn build && cd .. && yarn install",
-    "dev": "next dev --turbopack",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next build --webpack"
   },
@@ -27,8 +26,8 @@
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
-    "pixi-live2d-display": "file:./pixi-live2d-display",
-    "pixi.js": "^6.5.10",
+    "pixi-live2d-display-advanced": "^1.1.0",
+    "pixi.js": "^7.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.0.0",
     "swr": "^2.4.0",

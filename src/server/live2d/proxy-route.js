@@ -1,6 +1,8 @@
 import { Asset2JsonConverter } from "./asset-converter";
 import { getLive2DFileUrl } from "./remote";
 
+const MTN_PARAM_IMPORT_LINE = /^\s*PARAM_IMPORT=.*(?:\r?\n)?/gim;
+
 export async function createLive2DAssetResponse({ model, path = [], isModified = false }) {
   const filePath = Array.isArray(path) ? path.join("/") : "";
   const currentPath = model.replace("_rip", "");
@@ -31,7 +33,13 @@ export async function createLive2DAssetResponse({ model, path = [], isModified =
   }
 
   const contentType = response.headers.get("content-type");
-  const buffer = await response.arrayBuffer();
+  let buffer = await response.arrayBuffer();
+
+  if (filePath.toLowerCase().endsWith(".mtn")) {
+    const sourceText = new TextDecoder().decode(buffer);
+    const sanitizedText = sourceText.replace(MTN_PARAM_IMPORT_LINE, "");
+    buffer = new TextEncoder().encode(sanitizedText).buffer;
+  }
 
   return {
     ok: true,

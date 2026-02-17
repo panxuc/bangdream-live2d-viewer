@@ -7,8 +7,9 @@ import { PUBLIC_ASSET_PATHS, getViewerModelApiBase } from "@/src/config/urls";
 import { loadPublicScript } from "@/src/lib/loadPublicScript";
 
 let coreLoadPromise = null;
+let audioUnlockPromise = null;
 const CANVAS_SIZE = 400;
-const DISPLAY_CANVAS_MAX_SIZE = 520;
+const DISPLAY_CANVAS_MAX_SIZE = 800;
 const DEFAULT_MODEL_SCALE = 0.25;
 const MODEL_MASK_TEXTURE = PUBLIC_ASSET_PATHS.modelMaskTexture;
 const STABILITY_CHECK_INTERVAL = 50;
@@ -30,6 +31,34 @@ const loadLive2DCore = () => {
   });
 
   return coreLoadPromise;
+};
+
+const resumeAudioContexts = async () => {
+  if (typeof window === "undefined") return;
+  if (audioUnlockPromise) return audioUnlockPromise;
+
+  audioUnlockPromise = (async () => {
+    try {
+      const pixiSound = await import("@pixi/sound");
+      const context = pixiSound?.sound?.context?.audioContext;
+      if (context?.state === "suspended") {
+        await context.resume();
+      }
+    } catch {
+      // Ignore audio unlock failures; browser may still block until explicit gesture.
+    }
+
+    try {
+      const globalContext = window?.PIXI?.sound?.context?.audioContext;
+      if (globalContext?.state === "suspended") {
+        await globalContext.resume();
+      }
+    } catch {
+      // Ignore global audio context unlock failures.
+    }
+  })();
+
+  return audioUnlockPromise;
 };
 
 const safeRun = (fn) => {
@@ -80,6 +109,33 @@ const removeModelInstance = (app, instance) => {
   });
 };
 
+const stopModelMotions = (model) => {
+  if (!model) return;
+
+  if (typeof model.stopMotions === "function") {
+    model.stopMotions();
+    return;
+  }
+
+  model?.internalModel?.motionManager?.stopAllMotions?.();
+};
+
+const disableModelBreathing = (model) => {
+  if (!model?.internalModel) return;
+
+  if ("eyeBlink" in model.internalModel) {
+    model.internalModel.eyeBlink = null;
+  }
+
+  if ("breath" in model.internalModel) {
+    model.internalModel.breath = null;
+  }
+
+  if (typeof model.internalModel.updateNaturalMovements === "function") {
+    model.internalModel.updateNaturalMovements = () => {};
+  }
+};
+
 const patchMaskedTextures = (data, isHeadless, isBodyless) => {
   if ((!isHeadless && !isBodyless) || !Array.isArray(data?.textures)) return;
 
@@ -101,23 +157,52 @@ const waitCanvasStable = async (app, signal) =>
       return;
     }
 
-    const gl = app.renderer.gl;
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+
+    const gl = app.renderer.gl || app.renderer?.context?.gl;
+    if (!gl) {
+      // Fallback for non-WebGL renderers or unavailable context.
+      const fallbackTimer = setTimeout(() => {
+        signal?.removeEventListener?.("abort", onAbort);
+        resolve();
+      }, STABILITY_WARMUP_MS);
+      const onAbort = () => {
+        clearTimeout(fallbackTimer);
+        resolve();
+      };
+      signal?.addEventListener?.("abort", onAbort, { once: true });
+      return;
+    }
+
     let lastPixels = null;
     let stableFramesCount = 0;
     let lastCheckTime = 0;
+    let started = false;
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
 
     const cleanup = () => {
-      app.renderer.off("postrender", checkHandler);
+      app.ticker?.remove(checkHandler);
+      signal?.removeEventListener?.("abort", onAbort);
       clearTimeout(safetyTimeout);
       clearTimeout(warmupTimeout);
     };
 
+    const onAbort = () => {
+      finish();
+    };
+
     const checkHandler = () => {
-      if (signal?.aborted) {
-        cleanup();
-        resolve();
-        return;
-      }
+      if (!started || signal?.aborted) return;
 
       const now = performance.now();
       if (now - lastCheckTime < STABILITY_CHECK_INTERVAL) return;
@@ -148,8 +233,7 @@ const waitCanvasStable = async (app, signal) =>
         stableFramesCount = changeRate < STABILITY_SCREEN_CHANGE_TOLERANCE ? stableFramesCount + 1 : 0;
 
         if (stableFramesCount >= STABILITY_REQUIRED_CHECKS) {
-          cleanup();
-          resolve();
+          finish();
         }
       }
 
@@ -157,13 +241,15 @@ const waitCanvasStable = async (app, signal) =>
     };
 
     const warmupTimeout = setTimeout(() => {
-      app.renderer.on("postrender", checkHandler);
+      started = true;
     }, STABILITY_WARMUP_MS);
 
     const safetyTimeout = setTimeout(() => {
-      cleanup();
-      resolve();
+      finish();
     }, STABILITY_TIMEOUT_MS);
+
+    signal?.addEventListener?.("abort", onAbort, { once: true });
+    app.ticker?.add(checkHandler);
   });
 
 const Live2DCanvas = forwardRef(function Live2DCanvas({
@@ -178,6 +264,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
   const live2dDisplayRef = useRef(null);
   const modelInstancesRef = useRef({});
   const prevModelsRef = useRef([]);
+  const [appReady, setAppReady] = useState(false);
   const [loadingStates, setLoadingStates] = useState({});
 
   const setModelLoading = (id, state) => {
@@ -197,9 +284,10 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
     getModels: () => Object.values(modelInstancesRef.current),
     getModel: () => Object.values(modelInstancesRef.current)[0],
     internalPlayMotion: (group) => {
+      void resumeAudioContexts();
       Object.values(modelInstancesRef.current).forEach((model) =>
         safeRun(() => {
-          model?.internalModel?.motionManager?.stopAllMotions();
+          stopModelMotions(model);
           model?.motion(group, 0, 3);
         }),
       );
@@ -207,7 +295,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
     internalReset: () => {
       Object.values(modelInstancesRef.current).forEach((model) =>
         safeRun(() => {
-          model?.internalModel?.motionManager?.stopAllMotions();
+          stopModelMotions(model);
           model?.expression(null);
         }),
       );
@@ -219,6 +307,13 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
     if (typeof window === "undefined" || !canvasRef.current) return;
 
     let cancelled = false;
+    const unlockAudio = () => {
+      void resumeAudioContexts();
+    };
+
+    window.addEventListener("pointerdown", unlockAudio, { passive: true });
+    window.addEventListener("touchstart", unlockAudio, { passive: true });
+    window.addEventListener("keydown", unlockAudio);
 
     const init = async () => {
       if (!coreLoadedRef.current) {
@@ -228,8 +323,9 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
       }
 
       if (!live2dDisplayRef.current) {
-        const { Live2DModel } = await import("pixi-live2d-display");
+        const { Live2DModel } = await import("pixi-live2d-display-advanced");
         if (cancelled) return;
+
         live2dDisplayRef.current = { Live2DModel };
       }
 
@@ -240,14 +336,18 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
           height: CANVAS_SIZE,
           backgroundAlpha: 0,
           antialias: true,
-          resolution: 1,
+          resolution: window.devicePixelRatio || 1,
           autoDensity: false,
-          resizeTo: null,
           preserveDrawingBuffer: true,
         });
-        app.ticker.maxFPS = 30;
+        if (cancelled) {
+          app.destroy(true, true);
+          return;
+        }
+        // app.ticker.maxFPS = 30;
         app.stage.sortableChildren = true;
         appRef.current = app;
+        setAppReady(true);
       }
     };
 
@@ -255,17 +355,21 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
 
     return () => {
       cancelled = true;
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
       if (appRef.current) {
         appRef.current.destroy(true, true);
         appRef.current = null;
       }
+      setAppReady(false);
       modelInstancesRef.current = {};
       prevModelsRef.current = [];
     };
   }, []);
 
   useEffect(() => {
-    if (!appRef.current || !coreLoadedRef.current || !live2dDisplayRef.current) return;
+    if (!appReady || !appRef.current || !coreLoadedRef.current || !live2dDisplayRef.current) return;
 
     const prevModels = prevModelsRef.current;
     prevModelsRef.current = models;
@@ -336,11 +440,17 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
 
             patchMaskedTextures(data, currentConfig.isHeadless, currentConfig.isBodyless);
 
-            const newModel = await ModelClass.from(data, { autoInteract: false });
+            const newModel = await ModelClass.from(data, {
+              autoHitTest: false,
+              autoFocus: false,
+              breathDepth: 0,
+            });
             if (isCancelled) {
               newModel.destroy();
               return;
             }
+
+            safeRun(() => disableModelBreathing(newModel));
 
             appRef.current.stage.addChild(newModel);
             modelInstancesRef.current[id] = newModel;
@@ -393,7 +503,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
     };
     syncModels();
     return () => { isCancelled = true; };
-  }, [models, onModelLoad, onSyncComplete]);
+  }, [appReady, models, onModelLoad, onSyncComplete]);
 
   const hasLoading = Object.values(loadingStates).some(v => v);
 
