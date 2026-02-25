@@ -5,6 +5,7 @@ import * as PIXI from "pixi.js";
 import { Loader2, Music } from "lucide-react";
 import { PUBLIC_ASSET_PATHS, getViewerModelApiBase } from "@/src/config/urls";
 import { loadPublicScript } from "@/src/lib/loadPublicScript";
+import { getBackgroundCanvasStyle } from "@/src/features/viewer/lib/backgroundStyle";
 
 let coreLoadPromise = null;
 let audioUnlockPromise = null;
@@ -506,6 +507,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
   }, [appReady, models, onModelLoad, onSyncComplete]);
 
   const hasLoading = Object.values(loadingStates).some(v => v);
+  const canvasBackgroundStyle = getBackgroundCanvasStyle(backgroundColor);
 
   return (
     <div className="flex items-center justify-center w-full">
@@ -518,7 +520,7 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
             width: "100%",
             maxWidth: `${DISPLAY_CANVAS_MAX_SIZE}px`,
             height: "auto",
-            backgroundColor: backgroundColor === "transparent" ? "transparent" : backgroundColor,
+            ...canvasBackgroundStyle,
           }}
           className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
         />

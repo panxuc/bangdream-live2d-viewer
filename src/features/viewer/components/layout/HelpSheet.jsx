@@ -8,28 +8,31 @@ import {
   Compass,
   Download,
   FolderUp,
+  Github,
   Info,
   Layers,
+  Link,
+  ListTodo,
   Loader,
+  MessageCircle,
   MousePointerClick,
   MoveHorizontal,
   MoveVertical,
   Move,
-  RefreshCw,
   Plus,
+  RefreshCw,
   ShieldAlert,
   Shirt,
   Shuffle,
   Skull,
   Sparkles,
   SquareStack,
+  Star,
   Sun,
-  ListTodo,
   Trash2,
   Upload,
-  Wifi,
-  Moon,
   Wand2,
+  Wifi,
 } from "lucide-react";
 import {
   Sheet,
@@ -46,11 +49,21 @@ const sections = [
     title: "关于本站",
     icon: Info,
     items: [
-      [{ icon: Wifi }, "基础模型来自于 Bestdori 网站的游戏解包资源，本站不定期对相关资源进行备份。"],
+      [{ icon: Wifi }, "基础模型来自于 ", { type: "link", label: "Bestdori", href: "https://bestdori.com/" }, " 网站的游戏解包资源，本站不定期对相关资源进行备份。"],
       [{ icon: Wifi }, "改模模型大部分来自于社区的用户自制资源。本站仅提供展示功能。"],
       [{ icon: FolderUp }, "本地上传功能支持用户导入自己手头的 Live2D 模型文件，文件不会被上传到服务器，完全在浏览器本地处理。"],
       [{ icon: Info }, "由于 Live2D 模型的复杂性和多样性，无法保证所有模型都能完美兼容和显示效果良好。"],
-      [{ icon: CircleHelp }, "如果你有任何问题或建议，欢迎在 NGA 联系 [@各務砂雪] (UID 66691870)。"],
+      [{ icon: CircleHelp }, "如果你有任何问题或建议，欢迎在 NGA 联系 ", { type: "link", label: "[@各務砂雪]", href: "https://bbs.nga.cn/nuke.php?func=ucp&uid=66691870" }, " 或在 ", { type: "link", label: "此帖", href: "https://bbs.nga.cn/read.php?tid=44612199" }, " 下反馈。"],
+    ],
+  },
+  {
+    id: "link",
+    title: "链接",
+    icon: Link,
+    items: [
+      [{ icon: Star }, { type: "link", label: "Bestdori", href: "https://bestdori.com/" }],
+      [{ icon: MessageCircle }, { type: "link", label: "WebGAL 交流群", href: "https://t.bilibili.com/328261011?comment_on=1&comment_root_id=265078938272&share_tag=s_i&type=2#reply265078938272" }],
+      [{ icon: Github }, { type: "link", label: "KonshinHaoshin/mygoxmujica_archive", href: "https://github.com/KonshinHaoshin/mygoxmujica_archive" }],
     ],
   },
   {
@@ -68,6 +81,10 @@ const InlineIcon = ({ icon: Icon }) => (
     <Icon className="w-3.5 h-3.5 text-[#E5004F]" />
   </span>
 );
+
+const isLinkPart = (part) => typeof part === "object" && part?.type === "link" && typeof part?.href === "string";
+
+const isIconPart = (part) => typeof part === "object" && part?.icon;
 
 export function HelpSheet() {
   return (
@@ -104,8 +121,20 @@ export function HelpSheet() {
                         {item.map((part, partIndex) =>
                           typeof part === "string" ? (
                             <span key={`${section.id}-${itemIndex}-${partIndex}`}>{part}</span>
-                          ) : (
+                          ) : isLinkPart(part) ? (
+                            <a
+                              key={`${section.id}-${itemIndex}-${partIndex}`}
+                              href={part.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mx-0.5 text-[#E5004F] font-semibold underline decoration-[#E5004F]/40 underline-offset-3 hover:text-[#c50042] hover:decoration-[#E5004F]"
+                            >
+                              {part.label || part.href}
+                            </a>
+                          ) : isIconPart(part) ? (
                             <InlineIcon key={`${section.id}-${itemIndex}-${partIndex}`} icon={part.icon} />
+                          ) : (
+                            <span key={`${section.id}-${itemIndex}-${partIndex}`} />
                           ),
                         )}
                       </span>

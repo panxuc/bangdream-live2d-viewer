@@ -3,13 +3,26 @@
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { useState, useCallback, memo, useMemo, useRef } from "react";
+import { useState, useCallback, memo, useMemo, useRef, useEffect } from "react";
 import { Camera, Image as ImageIcon, Scaling, Check, Layers, Loader2, StopCircle, Pencil } from "lucide-react";
+import {
+  ID_PHOTO_BG,
+  DEFAULT_CUSTOM_BACKGROUND,
+  normalizeCustomBackground,
+  encodeCustomBackground,
+  decodeCustomBackground,
+  isCustomBackground,
+  getBackgroundSwatchStyle,
+  drawBackgroundToCanvas,
+  isDarkBackground,
+} from "@/src/features/viewer/lib/backgroundStyle";
 
 const BACKGROUND_OPTIONS = [
-  { id: 'transparent', color: 'transparent', label: '透明', border: 'border-gray-200' },
-  { id: 'white', color: '#ffffff', label: '白色', border: 'border-gray-200' },
-  { id: 'black', color: '#1a101f', label: '黑色', border: 'border-gray-800' },
+  { id: "transparent", color: "transparent", label: "透明", border: "border-gray-200" },
+  { id: "white", color: "#ffffff", label: "白色", border: "border-gray-200" },
+  { id: "black", color: "#1a101f", label: "黑色", border: "border-gray-800" },
+  { id: "id-standard", color: ID_PHOTO_BG, label: "蓝白渐变", border: "border-sky-400/70" },
+  { id: "custom", color: "custom", label: "自定义", border: "border-[#E5004F]/45" },
 ];
 
 const SaveButton = memo(function SaveButton({
@@ -27,10 +40,27 @@ const SaveButton = memo(function SaveButton({
   const [customName, setCustomName] = useState('');
   const [isBatching, setIsBatching] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0, currentName: '' });
+  const [customBackground, setCustomBackground] = useState(DEFAULT_CUSTOM_BACKGROUND);
   const abortControllerRef = useRef(null);
   const exportCanvasRef = useRef(null);
   const scaleCanvasRef = useRef(null);
   const downloadLinkRef = useRef(null);
+  const customBackgroundValue = useMemo(() => encodeCustomBackground(customBackground), [customBackground]);
+  const selectedOptionId = useMemo(() => {
+    if (isCustomBackground(backgroundColor)) return "custom";
+    return BACKGROUND_OPTIONS.find((option) => option.color === backgroundColor)?.id || null;
+  }, [backgroundColor]);
+
+  useEffect(() => {
+    const decoded = decodeCustomBackground(backgroundColor);
+    if (decoded) setCustomBackground(decoded);
+  }, [backgroundColor]);
+
+  useEffect(() => {
+    if (selectedOptionId === "custom" && backgroundColor !== customBackgroundValue) {
+      onBackgroundColorChange(customBackgroundValue);
+    }
+  }, [selectedOptionId, backgroundColor, customBackgroundValue, onBackgroundColorChange]);
 
   const getFileName = useCallback((motionGroup, expression) => {
     const clean = (str) => str ? str.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '') : '';
@@ -68,10 +98,7 @@ const SaveButton = memo(function SaveButton({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, targetSize, targetSize);
-    if (backgroundColor && backgroundColor !== 'transparent') {
-      ctx.fillStyle = backgroundColor;
-      ctx.fillRect(0, 0, targetSize, targetSize);
-    }
+    drawBackgroundToCanvas(ctx, targetSize, targetSize, backgroundColor);
 
     const srcW = rawCanvas.width || app.renderer.width || 400;
     const srcH = rawCanvas.height || app.renderer.height || 400;
@@ -216,16 +243,115 @@ const SaveButton = memo(function SaveButton({
           {BACKGROUND_OPTIONS.map((option) => (
             <button
               key={option.id}
-              onClick={() => onBackgroundColorChange(option.color)}
+              onClick={() => onBackgroundColorChange(option.id === "custom" ? customBackgroundValue : option.color)}
               disabled={isBatching}
-              className={`relative w-8 h-8 rounded-full border shadow-sm transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E5004F] ${option.border} ${backgroundColor === option.color ? 'ring-2 ring-offset-1 ring-[#E5004F] scale-105' : ''}`}
-              style={{ backgroundColor: option.color === 'transparent' ? 'transparent' : option.color, backgroundImage: option.color === 'transparent' ? 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)' : 'none', backgroundSize: option.color === 'transparent' ? '8px 8px' : 'auto', backgroundPosition: option.color === 'transparent' ? '0 0, 0 4px, 4px -4px, -4px 0px' : '0 0' }}
+              className={`relative w-8 h-8 rounded-full border shadow-sm transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E5004F] ${option.border} ${(option.id === "custom" ? selectedOptionId === "custom" : backgroundColor === option.color) ? 'ring-2 ring-offset-1 ring-[#E5004F] scale-105' : ''}`}
+              style={getBackgroundSwatchStyle(option.id === "custom" ? customBackgroundValue : option.color)}
               title={option.label}
             >
-              {backgroundColor === option.color && (<span className="absolute inset-0 flex items-center justify-center"> <Check className={`w-4 h-4 ${option.color === '#E5004F' || option.color === '#1a101f' ? 'text-white' : 'text-[#E5004F]'}`} strokeWidth={3} /> </span>)}
+              {(option.id === "custom" ? selectedOptionId === "custom" : backgroundColor === option.color) && (
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <Check className={`w-4 h-4 ${isDarkBackground(option.id === "custom" ? customBackgroundValue : option.color) ? "text-white" : "text-[#E5004F]"}`} strokeWidth={3} />
+                </span>
+              )}
+              {option.id === "custom" && (
+                <span className="absolute -right-1 -bottom-1 w-4 h-4 rounded-full bg-white dark:bg-[#1a101f] border border-[#E5004F]/30 flex items-center justify-center shadow-sm">
+                  <Pencil className="w-2.5 h-2.5 text-[#E5004F]" />
+                </span>
+              )}
             </button>
           ))}
         </div>
+        {selectedOptionId === "custom" && (
+          <div className="mt-3 rounded-xl border border-[#E5004F]/20 bg-white/90 dark:bg-[#2a1d35]/70 p-3 space-y-3 shadow-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs font-medium text-gray-700 dark:text-gray-200 space-y-1.5">
+                <span className="block">主色</span>
+                <input
+                  type="color"
+                  value={customBackground.primary}
+                  onChange={(e) => setCustomBackground((prev) => normalizeCustomBackground({ ...prev, primary: e.target.value }))}
+                  disabled={isBatching}
+                  className="w-full h-10 rounded-lg border border-[#E5004F]/25 bg-white/70 dark:bg-[#1f1429]/70 p-1 cursor-pointer"
+                />
+              </label>
+              <label className="text-xs font-medium text-gray-700 dark:text-gray-200 space-y-1.5">
+                <span className="block">主色透明度 {customBackground.alpha}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={customBackground.alpha}
+                  onChange={(e) => setCustomBackground((prev) => normalizeCustomBackground({ ...prev, alpha: Number.parseInt(e.target.value, 10) }))}
+                  disabled={isBatching}
+                  className="w-full accent-[#E5004F]"
+                />
+              </label>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCustomBackground((prev) => normalizeCustomBackground({ ...prev, gradient: !prev.gradient }))}
+              disabled={isBatching}
+              className={`w-full h-9 rounded-lg border text-xs font-medium transition-all ${
+                customBackground.gradient
+                  ? "border-[#E5004F]/40 text-[#E5004F] bg-[#E5004F]/5"
+                  : "border-[#E5004F]/20 text-gray-600 dark:text-gray-200 bg-white/50 dark:bg-[#24162f]/50"
+              }`}
+            >
+              {customBackground.gradient ? "已启用渐变" : "启用渐变"}
+            </Button>
+            {customBackground.gradient && (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-200 space-y-1.5">
+                  <span className="block">终点色</span>
+                  <input
+                    type="color"
+                    value={customBackground.secondary}
+                    onChange={(e) => setCustomBackground((prev) => normalizeCustomBackground({ ...prev, secondary: e.target.value }))}
+                    disabled={isBatching}
+                    className="w-full h-10 rounded-lg border border-[#E5004F]/25 bg-white/70 dark:bg-[#1f1429]/70 p-1 cursor-pointer"
+                  />
+                </label>
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-200 space-y-1.5">
+                  <span className="block">终点透明度 {customBackground.secondaryAlpha}%</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={customBackground.secondaryAlpha}
+                    onChange={(e) => setCustomBackground((prev) => normalizeCustomBackground({ ...prev, secondaryAlpha: Number.parseInt(e.target.value, 10) }))}
+                    disabled={isBatching}
+                    className="w-full accent-[#E5004F]"
+                  />
+                </label>
+                <div className="col-span-2">
+                  <Select
+                    value={customBackground.direction}
+                    onValueChange={(value) => setCustomBackground((prev) => normalizeCustomBackground({ ...prev, direction: value }))}
+                    disabled={isBatching}
+                  >
+                    <SelectTrigger className="h-10 rounded-xl bg-white/90 dark:bg-[#2a1d35]/70 border-[#E5004F]/20 hover:border-[#E5004F]/50 focus:ring-[#E5004F]/20 focus:border-[#E5004F] transition-all">
+                      <SelectValue placeholder="渐变方向" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border border-[#E5004F]/15 dark:border-[#ff76a7]/25 shadow-xl bg-white/95 dark:bg-[#1a101f]/95 backdrop-blur-md">
+                      <SelectItem value="to bottom" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">↓</SelectItem>
+                      <SelectItem value="to right" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">→</SelectItem>
+                      <SelectItem value="to top" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">↑</SelectItem>
+                      <SelectItem value="to left" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">←</SelectItem>
+                      <SelectItem value="to bottom right" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">↘</SelectItem>
+                      <SelectItem value="to top left" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">↖</SelectItem>
+                      <SelectItem value="to top right" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">↗</SelectItem>
+                      <SelectItem value="to bottom left" className="focus:text-[#E5004F] focus:bg-[#E5004F]/5 rounded-lg my-1 cursor-pointer">↙</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">
