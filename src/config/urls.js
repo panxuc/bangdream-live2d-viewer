@@ -15,8 +15,6 @@ export const PUBLIC_ASSET_PATHS = {
 };
 
 export const API_ROUTES = {
-  characters: "/api/characters",
-  categories: "/api/categories",
   models: "/api/models",
   download: "/api/download",
   downloadInfo: "/api/download-info",
@@ -38,11 +36,6 @@ export function getLive2DBaseUrl({ isModified, model }) {
 
 export function getLive2DModelIndexUrl(isModified) {
   return `${EXTERNAL_URLS.bangdreamR2Origin}/${getLive2DBranch(isModified)}/_info.json`;
-}
-
-export function getCrossCharaFileUrl(filePath) {
-  const dirName = filePath.split("/")[1];
-  return `${EXTERNAL_URLS.bangdreamR2Origin}/live2d/chara/${dirName}_rip/${filePath.replace(`../${dirName}/`, "")}`;
 }
 
 export function getViewerModelApiBase(modelId, isModified) {
@@ -70,11 +63,6 @@ export function getDownloadInfoApiUrl(modelId, isModified) {
     isModified: String(Boolean(isModified)),
   });
   return `${API_ROUTES.downloadInfo}/${encodeURIComponent(modelId)}?${params.toString()}`;
-}
-
-export function getCharactersApiUrl(limit) {
-  const params = new URLSearchParams({ limit: String(limit) });
-  return `${API_ROUTES.characters}?${params.toString()}`;
 }
 
 export function getBestdoriAssetUrl(region, assetId) {

@@ -124,29 +124,3 @@ export const characters = [
     { id: 601, name: "601 奥泽美咲", category: ["其他"] },
     { id: 999, name: "999 备用", category: ["其他"] },
 ];
-
-export function queryCharacters({ page = 1, limit = 50, category = null }) {
-    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
-    const safeLimit = Number.isFinite(limit) && limit > 0 ? limit : 50;
-
-    let filteredCharacters = characters;
-    if (category) {
-        filteredCharacters = characters.filter((char) => char.category.includes(category));
-    }
-
-    const startIndex = (safePage - 1) * safeLimit;
-    const endIndex = startIndex + safeLimit;
-    const paginatedCharacters = filteredCharacters.slice(startIndex, endIndex);
-
-    return {
-        characters: paginatedCharacters,
-        pagination: {
-            page: safePage,
-            limit: safeLimit,
-            total: filteredCharacters.length,
-            totalPages: Math.ceil(filteredCharacters.length / safeLimit),
-            hasNext: endIndex < filteredCharacters.length,
-            hasPrev: safePage > 1,
-        },
-    };
-}
