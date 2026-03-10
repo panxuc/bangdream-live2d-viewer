@@ -133,6 +133,19 @@
 }
 
 @layer utilities {
+  .viewer-layout-mobile {
+    display: block;
+  }
+
+  .viewer-layout-stacked,
+  .viewer-layout-wide {
+    display: none;
+  }
+
+  .viewer-export-panel {
+    position: static;
+  }
+
   .panel-glass {
     @apply rounded-2xl border shadow-sm backdrop-blur-sm;
     border-color: rgba(15, 23, 42, 0.08);
@@ -164,6 +177,31 @@
 
   .animate-band-shimmer {
     animation: bandShimmer 2.6s ease-in-out infinite;
+  }
+}
+
+@media (min-width: 640px) {
+  .viewer-layout-mobile {
+    display: none;
+  }
+
+  .viewer-layout-stacked {
+    display: grid;
+  }
+}
+
+@media (min-width: 800px) {
+  .viewer-layout-stacked {
+    display: none;
+  }
+
+  .viewer-layout-wide {
+    display: flex;
+  }
+
+  .viewer-export-panel {
+    position: sticky;
+    top: 7rem;
   }
 }
 

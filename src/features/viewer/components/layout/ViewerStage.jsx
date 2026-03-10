@@ -11,8 +11,8 @@ export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, o
   }).length;
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative w-full max-w-[520px]">
+    <div className="flex flex-col items-center w-full">
+      <div className="relative w-full">
         <div className="relative panel-glass overflow-hidden">
           <div className="h-9 bg-white/70 dark:bg-[#26222d] flex items-center px-4 justify-between border-b border-black/5 dark:border-white/10">
             <div className="flex gap-2">
@@ -24,7 +24,7 @@ export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, o
               当前激活 {activeCount} 个模型
             </div>
           </div>
-          <div className="relative bg-white/40 dark:bg-[#1b1821]">
+          <div className="relative aspect-square bg-white/40 dark:bg-[#1b1821]">
             <Live2DCanvas ref={canvasRef} models={models} onModelLoad={onModelLoad} onSyncComplete={onSyncComplete} backgroundColor={backgroundColor} />
             {!activeCount && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-gray-500 dark:text-gray-300 pointer-events-none">

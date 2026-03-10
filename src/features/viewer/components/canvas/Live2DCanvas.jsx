@@ -10,7 +10,7 @@ import { getBackgroundCanvasStyle } from "@/src/features/viewer/lib/backgroundSt
 let coreLoadPromise = null;
 let audioUnlockPromise = null;
 const CANVAS_SIZE = 400;
-const DISPLAY_CANVAS_MAX_SIZE = 800;
+const DISPLAY_CANVAS_MAX_SIZE = 600;
 const DEFAULT_MODEL_SCALE = 0.25;
 const MODEL_MASK_TEXTURE = PUBLIC_ASSET_PATHS.modelMaskTexture;
 const STABILITY_CHECK_INTERVAL = 50;
@@ -510,19 +510,19 @@ const Live2DCanvas = forwardRef(function Live2DCanvas({
   const canvasBackgroundStyle = getBackgroundCanvasStyle(backgroundColor);
 
   return (
-    <div className="flex items-center justify-center w-full">
-      <div className="relative group w-full">
+    <div className="flex items-center justify-center w-full h-full">
+      <div className="relative group w-full h-full">
         <canvas
           ref={canvasRef}
           width={CANVAS_SIZE}
           height={CANVAS_SIZE}
           style={{
             width: "100%",
+            height: "100%",
             maxWidth: `${DISPLAY_CANVAS_MAX_SIZE}px`,
-            height: "auto",
             ...canvasBackgroundStyle,
           }}
-          className="rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
+          className="w-full h-full rounded-xl transition-all duration-300 cursor-grab active:cursor-grabbing"
         />
         {hasLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-xl animate-fade-in z-20 pointer-events-none">

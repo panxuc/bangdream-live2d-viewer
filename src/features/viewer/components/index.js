@@ -1,4 +1,4 @@
-export { ViewerHeader, ViewerStage } from "./layout";
+export { ViewerFooter, ViewerHeader, ViewerStage } from "./layout";
 
 export { ViewerControlsPanel, ViewerExportPanel } from "./panels";
 

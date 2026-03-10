@@ -32,7 +32,7 @@ export function ViewerControlsPanel(props) {
   return (
     <div
       ref={controlsLayoutRef}
-      className={`lg:sticky lg:top-28 ${isWideControlsLayout ? "grid grid-cols-[320px_minmax(0,1fr)] gap-6 items-start" : "space-y-6"}`}
+      className={`lg:sticky lg:top-28 ${isWideControlsLayout ? "grid grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)] gap-6 items-start" : "space-y-6"}`}
     >
       <LayerListPanel
         models={props.models}
