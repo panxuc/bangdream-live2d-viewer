@@ -1,2 +1,9 @@
 export { ViewerControlsPanel } from "./ViewerControlsPanel";
 export { ViewerExportPanel } from "./ViewerExportPanel";
+export { LayerListPanel } from "./LayerListPanel";
+export { LayerEditorPanel } from "./LayerEditorPanel";
+export { ModelSourceSection } from "./ModelSourceSection";
+export { RemoteModelSection } from "./RemoteModelSection";
+export { MotionSection } from "./MotionSection";
+export { ExpressionSection } from "./ExpressionSection";
+export { TransformSection } from "./TransformSection";

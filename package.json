@@ -6,7 +6,9 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "next build --webpack"
+    "lint": "node scripts/lint.mjs",
+    "test": "node --no-warnings --test",
+    "check": "npm run lint && npm run test"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.2",

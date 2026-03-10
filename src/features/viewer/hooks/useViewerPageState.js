@@ -1,18 +1,11 @@
 "use client";
 
 import * as PIXI from "pixi.js";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getViewerModelApiBase } from "@/src/config/urls";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useViewerLayerState } from "@/src/features/viewer/hooks/useViewerLayerState";
 import { buildLocalModelFromArchive, collectModelCandidates, extractArchiveEntries } from "@/src/features/viewer/lib/localModelArchive";
+import { toControlModelData, toProcessedMotionGroups } from "@/src/features/viewer/lib/modelData";
 import {
-  applyProcessedExpressions,
-  applyProcessedMotions,
-  toControlModelData,
-  toProcessedExpressions,
-  toProcessedMotionGroups,
-} from "@/src/features/viewer/lib/modelData";
-import {
-  DEFAULT_MODEL_ID,
   MAX_MODELS,
   RESET_ON_CHARACTER_CHANGE,
   RESET_ON_MODEL_CHANGE,
@@ -22,6 +15,11 @@ import {
   getModelSourceSignature,
   toNullableSelection,
 } from "@/src/features/viewer/lib/modelState";
+import {
+  buildBorrowingPatchForModel,
+  buildCombinedOverridePatchForModel,
+  fetchBuildDataAsset as fetchRemoteBuildDataAsset,
+} from "@/src/features/viewer/lib/remoteModelService";
 
 export { MAX_MODELS };
 
@@ -34,8 +32,20 @@ const nextModelRequestId = (requestMapRef, modelId) => {
 const isCurrentModelRequest = (requestMapRef, modelId, requestId) => requestMapRef.current.get(modelId) === requestId;
 
 export function useViewerPageState() {
-  const [models, setModels] = useState([createModel(DEFAULT_MODEL_ID)]);
-  const [activeModelId, setActiveModelId] = useState(DEFAULT_MODEL_ID);
+  const {
+    models,
+    activeModel,
+    activeModelId,
+    activeModelIndex,
+    setActiveModelId,
+    addModel,
+    insertModelAfter,
+    removeModel,
+    moveModel,
+    reorderModels,
+    updateModelById,
+    mapModels,
+  } = useViewerLayerState();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState("transparent");
   const [isBatching, setIsBatching] = useState(false);
@@ -51,9 +61,6 @@ export function useViewerPageState() {
   const localModelApplyRequestsRef = useRef(new Map());
 
   modelsRef.current = models;
-
-  const activeModel = useMemo(() => models.find((model) => model.id === activeModelId) || models[0], [models, activeModelId]);
-  const activeModelIndex = useMemo(() => models.findIndex((model) => model.id === activeModelId), [models, activeModelId]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -79,124 +86,15 @@ export function useViewerPageState() {
   }, []);
 
   const getModelById = useCallback((modelId) => modelsRef.current.find((model) => model.id === modelId) || null, []);
-
-  const updateModelById = useCallback((modelId, updates) => {
-    setModels((prev) =>
-      prev.map((model) => {
-        if (model.id !== modelId) return model;
-        const nextUpdates = typeof updates === "function" ? updates(model) : updates;
-        return nextUpdates ? { ...model, ...nextUpdates } : model;
-      }),
-    );
-  }, []);
-
   const updateActiveModel = useCallback((updates) => updateModelById(activeModelId, updates), [activeModelId, updateModelById]);
-
-  const fetchBuildDataAsset = useCallback(async (modelId, isModified) => {
-    const modelBaseUrl = getViewerModelApiBase(modelId, isModified);
-    const buildDataUrl = `${modelBaseUrl}buildData.asset`;
-    const response = await fetch(buildDataUrl);
-    if (!response.ok) {
-      throw new Error("Failed to fetch model data");
-    }
-
-    return {
-      json: await response.json(),
-      baseUrl: modelBaseUrl,
-    };
-  }, []);
-
-  const resolveTargetModelData = useCallback(
-    async (targetModel) => {
-      const isLocalTarget = targetModel.modelSource === "local" && !!targetModel.localModelData;
-      if (!isLocalTarget && !targetModel.modelId) {
-        return null;
-      }
-
-      if (isLocalTarget) {
-        return {
-          json: deepCloneValue(targetModel.localModelData),
-          baseUrl: "",
-          isLocalTarget: true,
-        };
-      }
-
-      const remoteData = await fetchBuildDataAsset(targetModel.modelId, targetModel.isModified);
-      return {
-        json: remoteData.json,
-        baseUrl: remoteData.baseUrl,
-        isLocalTarget: false,
-      };
-    },
-    [fetchBuildDataAsset],
-  );
-
-  const buildBorrowingPatchForModel = useCallback(
-    async (targetModel, sourceCharId, sourceModelId, processedMotions) => {
-      const resolvedTarget = await resolveTargetModelData(targetModel);
-      if (!resolvedTarget) return null;
-
-      const hybridModelData = applyProcessedMotions(resolvedTarget.json, resolvedTarget.baseUrl, processedMotions);
-      return {
-        customModelData: hybridModelData,
-        modelData: toControlModelData(hybridModelData),
-        motion: null,
-        borrowedModelId: sourceModelId,
-        borrowedCharId: sourceCharId,
-        isBorrowingMotion: true,
-      };
-    },
-    [resolveTargetModelData],
-  );
-
-  const buildCombinedOverridePatchForModel = useCallback(
-    async (targetModel, { motionSourceModelId = null, expressionSourceModelId = null } = {}) => {
-      const resolvedTarget = await resolveTargetModelData(targetModel);
-      if (!resolvedTarget) return null;
-
-      const { json: targetJson, baseUrl: targetBaseUrl, isLocalTarget } = resolvedTarget;
-      const hasMotionOverride = !!motionSourceModelId;
-      const hasExpressionOverride = !!expressionSourceModelId;
-
-      if (!hasMotionOverride && !hasExpressionOverride) {
-        return {
-          customModelData: null,
-          modelData: isLocalTarget ? toControlModelData(targetModel.localModelData) : toControlModelData(targetJson),
-        };
-      }
-
-      let hybridModelData = {
-        ...targetJson,
-        url: targetBaseUrl,
-      };
-
-      if (hasMotionOverride) {
-        const motionSourceData = await fetchBuildDataAsset(motionSourceModelId, false);
-        const processedMotions = toProcessedMotionGroups(motionSourceData.json, motionSourceData.baseUrl);
-        hybridModelData = applyProcessedMotions(hybridModelData, targetBaseUrl, processedMotions);
-      }
-
-      if (hasExpressionOverride) {
-        const expressionSourceData = await fetchBuildDataAsset(expressionSourceModelId, false);
-        const processedExpressions = toProcessedExpressions(expressionSourceData.json, expressionSourceData.baseUrl);
-        hybridModelData = applyProcessedExpressions(hybridModelData, targetBaseUrl, processedExpressions);
-      }
-
-      return {
-        customModelData: hybridModelData,
-        modelData: toControlModelData(hybridModelData),
-      };
-    },
-    [fetchBuildDataAsset, resolveTargetModelData],
-  );
+  const fetchBuildDataAsset = useCallback((modelId, isModified) => fetchRemoteBuildDataAsset(modelId, isModified), []);
 
   const handleAddModel = useCallback(() => {
     if (models.length >= MAX_MODELS) return;
 
     const newId = `model-${Date.now()}`;
-    setModels((prev) => [...prev, createModel(newId)]);
-    setActiveModelId(newId);
-  }, [models.length]);
+    addModel(createModel(newId));
+  }, [addModel, models.length]);
 
   const handleDuplicateModel = useCallback(
     (idToDuplicate) => {
@@ -216,23 +114,14 @@ export function useViewerPageState() {
         localModelCandidates: deepCloneValue(sourceModel.localModelCandidates),
       };
 
-      setModels((prev) => {
-        const currentSourceIndex = prev.findIndex((model) => model.id === idToDuplicate);
-        if (currentSourceIndex === -1 || prev.length >= MAX_MODELS) return prev;
-
-        const next = [...prev];
-        next.splice(currentSourceIndex + 1, 0, duplicatedModel);
-        return next;
-      });
+      insertModelAfter(idToDuplicate, duplicatedModel);
 
       const sourceArchive = localArchivesRef.current.get(idToDuplicate);
       if (sourceArchive) {
         localArchivesRef.current.set(newId, sourceArchive);
       }
-
-      setActiveModelId(newId);
     },
-    [models],
+    [insertModelAfter, models],
   );
 
   const handleRemoveModel = useCallback(
@@ -243,49 +132,26 @@ export function useViewerPageState() {
       overrideRequestsRef.current.delete(idToRemove);
       localArchiveUploadRequestsRef.current.delete(idToRemove);
       localModelApplyRequestsRef.current.delete(idToRemove);
-
-      setModels((prev) => {
-        const filtered = prev.filter((model) => model.id !== idToRemove);
-        if (idToRemove === activeModelId) {
-          setActiveModelId(filtered[filtered.length - 1].id);
-        }
-        return filtered;
-      });
+      removeModel(idToRemove);
     },
-    [models.length, activeModelId],
+    [models.length, removeModel],
   );
 
-  const handleMoveModel = useCallback((id, direction) => {
-    if (direction !== "up" && direction !== "down") return;
+  const handleMoveModel = useCallback(
+    (id, direction) => {
+      if (direction !== "up" && direction !== "down") return;
+      moveModel(id, direction);
+    },
+    [moveModel],
+  );
 
-    setModels((prev) => {
-      const index = prev.findIndex((model) => model.id === id);
-      if (index === -1) return prev;
-
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
-      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
-
-      const next = [...prev];
-      const [moved] = next.splice(index, 1);
-      next.splice(targetIndex, 0, moved);
-      return next;
-    });
-  }, []);
-
-  const handleReorderModels = useCallback((draggedId, targetId) => {
-    if (!draggedId || !targetId || draggedId === targetId) return;
-
-    setModels((prev) => {
-      const fromIndex = prev.findIndex((model) => model.id === draggedId);
-      const toIndex = prev.findIndex((model) => model.id === targetId);
-      if (fromIndex === -1 || toIndex === -1) return prev;
-
-      const next = [...prev];
-      const [dragged] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, dragged);
-      return next;
-    });
-  }, []);
+  const handleReorderModels = useCallback(
+    (draggedId, targetId) => {
+      if (!draggedId || !targetId || draggedId === targetId) return;
+      reorderModels(draggedId, targetId);
+    },
+    [reorderModels],
+  );
 
   const handleCharacterSelect = useCallback(
     (value) => {
@@ -314,7 +180,6 @@ export function useViewerPageState() {
       if (source !== "remote" && source !== "local") return;
 
       localArchivesRef.current.delete(activeModelId);
-
       updateActiveModel({
         ...RESET_ON_SOURCE_CHANGE,
         modelSource: source,
@@ -351,9 +216,11 @@ export function useViewerPageState() {
         const nextMotionCharId = sourceCharId && sourceModelId ? sourceCharId : null;
         const expressionModelId = modelSnapshot.isBorrowingExpression ? modelSnapshot.borrowedExpressionModelId : null;
 
-        const patch = await buildCombinedOverridePatchForModel(modelSnapshot, {
+        const patch = await buildCombinedOverridePatchForModel({
+          targetModel: modelSnapshot,
           motionSourceModelId: nextMotionModelId,
           expressionSourceModelId: expressionModelId,
+          fetchBuildData: fetchBuildDataAsset,
         });
         if (!patch || !isCurrentModelRequest(overrideRequestsRef, targetModelId, requestId)) return;
 
@@ -373,7 +240,7 @@ export function useViewerPageState() {
         }
       }
     },
-    [activeModelId, buildCombinedOverridePatchForModel, getModelById, updateModelById],
+    [activeModelId, fetchBuildDataAsset, getModelById, updateModelById],
   );
 
   const handleBorrowingToggle = useCallback(() => {
@@ -415,9 +282,11 @@ export function useViewerPageState() {
         const nextExpressionCharId = sourceCharId && sourceModelId ? sourceCharId : null;
         const motionModelId = modelSnapshot.isBorrowingMotion ? modelSnapshot.borrowedModelId : null;
 
-        const patch = await buildCombinedOverridePatchForModel(modelSnapshot, {
+        const patch = await buildCombinedOverridePatchForModel({
+          targetModel: modelSnapshot,
           motionSourceModelId: motionModelId,
           expressionSourceModelId: nextExpressionModelId,
+          fetchBuildData: fetchBuildDataAsset,
         });
         if (!patch || !isCurrentModelRequest(overrideRequestsRef, targetModelId, requestId)) return;
 
@@ -437,7 +306,7 @@ export function useViewerPageState() {
         }
       }
     },
-    [activeModelId, buildCombinedOverridePatchForModel, getModelById, updateModelById],
+    [activeModelId, fetchBuildDataAsset, getModelById, updateModelById],
   );
 
   const handleExpressionBorrowingToggle = useCallback(() => {
@@ -474,10 +343,15 @@ export function useViewerPageState() {
       const sourceData = await fetchBuildDataAsset(sourceModelId, false);
       const processedMotions = toProcessedMotionGroups(sourceData.json, sourceData.baseUrl);
 
-      const modelSnapshot = modelsRef.current;
       const updates = await Promise.all(
-        modelSnapshot.map(async (model) => {
-          const patch = await buildBorrowingPatchForModel(model, sourceCharId, sourceModelId, processedMotions);
+        modelsRef.current.map(async (model) => {
+          const patch = await buildBorrowingPatchForModel({
+            targetModel: model,
+            sourceCharId,
+            sourceModelId,
+            processedMotions,
+            fetchBuildData: fetchBuildDataAsset,
+          });
           return patch ? { id: model.id, patch } : null;
         }),
       );
@@ -485,11 +359,11 @@ export function useViewerPageState() {
       const patchMap = new Map(updates.filter(Boolean).map((entry) => [entry.id, entry.patch]));
       if (patchMap.size === 0) return;
 
-      setModels((prev) => prev.map((model) => (patchMap.has(model.id) ? { ...model, ...patchMap.get(model.id) } : model)));
+      mapModels((model) => (patchMap.has(model.id) ? { ...model, ...patchMap.get(model.id) } : model));
     } catch (error) {
       console.error("Apply borrowing to all layers failed:", error);
     }
-  }, [activeModel.borrowedCharId, activeModel.borrowedModelId, buildBorrowingPatchForModel, fetchBuildDataAsset]);
+  }, [activeModel.borrowedCharId, activeModel.borrowedModelId, fetchBuildDataAsset, mapModels]);
 
   const handleExpressionSelect = useCallback(
     (value) => {
@@ -512,15 +386,13 @@ export function useViewerPageState() {
       reloadTimeoutRef.current = null;
     }, 15000);
 
-    setModels((prev) =>
-      prev.map((model) => ({
-        ...model,
-        motion: null,
-        expression: null,
-        reloadKey: (model.reloadKey || 0) + 1,
-      })),
-    );
-  }, []);
+    mapModels((model) => ({
+      ...model,
+      motion: null,
+      expression: null,
+      reloadKey: (model.reloadKey || 0) + 1,
+    }));
+  }, [mapModels]);
 
   const handleCanvasSyncComplete = useCallback(() => {
     if (!reloadPendingRef.current) return;
@@ -581,7 +453,6 @@ export function useViewerPageState() {
 
       const requestId = nextModelRequestId(localArchiveUploadRequestsRef, targetModelId);
       const sourceSignature = getModelSourceSignature(modelSnapshot);
-
       setIsUploadingLocalModel(true);
 
       try {
@@ -597,7 +468,6 @@ export function useViewerPageState() {
         if (!currentModel || getModelSourceSignature(currentModel) !== sourceSignature) return;
 
         localArchivesRef.current.set(targetModelId, archivePayload);
-
         updateModelById(targetModelId, {
           localModelFileName: file.name,
           localArchiveToken: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,

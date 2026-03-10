@@ -3,7 +3,7 @@ import { EXTERNAL_URLS, ZIP_METADATA, getLive2DBranch } from "@/src/config/urls"
 import { getLive2DBaseUrl } from "./remote";
 
 const FIXED_DATE = new Date(0);
-const CACHE_TTL_MS = 2 * 60 * 1000;
+const CACHE_TTL_MS = 10 * 60 * 1000;
 const DATA_FOLDER = "data";
 const TEXTURES_FOLDER = `${DATA_FOLDER}/textures`;
 const MOTIONS_FOLDER = `${DATA_FOLDER}/motions`;
