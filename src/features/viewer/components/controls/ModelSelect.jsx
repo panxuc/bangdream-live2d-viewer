@@ -3,18 +3,11 @@
 import { SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { getModelsApiUrl } from "@/src/config/urls";
+import { fetchJson } from "@/src/lib/fetchJson";
 import { useMemo, memo } from "react";
 import { Shirt, Loader2, RotateCw } from "lucide-react";
 import useSWR from "swr";
 import { SelectField, selectItemClass } from "./shared/SelectField";
-
-const fetcher = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
-  return res.json();
-};
 
 const ModelSelect = memo(function ModelSelect({
   characterId,
@@ -29,7 +22,7 @@ const ModelSelect = memo(function ModelSelect({
   const paddedId = characterId ? characterId.padStart(3, '0') : null;
   const swrKey = paddedId ? getModelsApiUrl(paddedId, isModified) : null;
 
-  const { data, isLoading } = useSWR(swrKey, fetcher, {
+  const { data, isLoading } = useSWR(swrKey, fetchJson, {
     revalidateOnFocus: false,
     dedupingInterval: 60000,
     keepPreviousData: true,
