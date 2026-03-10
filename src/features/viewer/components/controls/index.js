@@ -4,3 +4,4 @@ export { MotionSelect } from "./MotionSelect";
 export { ExpressionSelect } from "./ExpressionSelect";
 export { SimpleSlider } from "./SimpleSlider";
 export { LocalModelUpload } from "./LocalModelUpload";
+export { ModelDownloadButton } from "./ModelDownloadButton";

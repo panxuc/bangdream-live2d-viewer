@@ -18,6 +18,7 @@ const ModelSelect = memo(function ModelSelect({
   disabled,
   showReload = true,
   isReloading = false,
+  trailingActions = null,
 }) {
   const paddedId = characterId ? characterId.padStart(3, '0') : null;
   const swrKey = paddedId ? getModelsApiUrl(paddedId, isModified) : null;
@@ -60,6 +61,8 @@ const ModelSelect = memo(function ModelSelect({
           ))}
         </SelectField>
       </div>
+
+      {trailingActions}
 
       {showReload ? (
         <Button

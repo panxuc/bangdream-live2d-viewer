@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDownloadPackage, getDownloadResponseHeaders } from "@/src/server/live2d/download-package";
+import { getDownloadPackage } from "@/src/server/live2d/download-package";
 
-async function handleZipRequest(request, context) {
+export async function GET(request, context) {
   const { model } = await context.params;
   const { searchParams } = new URL(request.url);
   const isModified = searchParams.get("isModified") === "true";
@@ -12,17 +12,14 @@ async function handleZipRequest(request, context) {
 
   try {
     const downloadPackage = await getDownloadPackage({ model, isModified });
-    return new NextResponse(downloadPackage.zipBuffer, {
-      headers: getDownloadResponseHeaders(downloadPackage),
+    return NextResponse.json({
+      fileName: downloadPackage.fileName,
+      sizeBytes: downloadPackage.sizeBytes,
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Failed to process data" },
+      { error: error.message || "Failed to fetch download info" },
       { status: error.status || 500 },
     );
   }
-}
-
-export async function GET(request, context) {
-  return handleZipRequest(request, context);
 }

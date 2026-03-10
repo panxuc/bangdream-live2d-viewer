@@ -1,6 +1,6 @@
 "use client";
 
-import { CharacterSelect, ModelSelect, MotionSelect, ExpressionSelect, SimpleSlider, LocalModelUpload } from "@/src/features/viewer/components/controls";
+import { CharacterSelect, ModelSelect, MotionSelect, ExpressionSelect, SimpleSlider, LocalModelUpload, ModelDownloadButton } from "@/src/features/viewer/components/controls";
 import { getBestdoriAssetUrl } from "@/src/config/urls";
 import { ChevronDown, ChevronUp, Copy, ExternalLink, FolderOpen, GripVertical, Layers, Maximize2, Minimize2, Move, Plus, Settings, Shirt, Shuffle, Skull, Sparkles, Trash2, Wifi } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -370,6 +370,13 @@ export function ViewerControlsPanel({
                   onReload={handleModelReload}
                   disabled={isBatching}
                   isReloading={isReloading}
+                  trailingActions={
+                    <ModelDownloadButton
+                      modelId={bestdoriAssetId}
+                      isModified={activeModel.isModified}
+                      disabled={isBatching}
+                    />
+                  }
                 />
               </div>
             </>

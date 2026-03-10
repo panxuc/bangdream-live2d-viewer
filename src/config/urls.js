@@ -18,6 +18,8 @@ export const API_ROUTES = {
   characters: "/api/characters",
   categories: "/api/categories",
   models: "/api/models",
+  download: "/api/download",
+  downloadInfo: "/api/download-info",
   chara: "/api/chara",
   charaModified: "/api/charam",
 };
@@ -54,6 +56,20 @@ export function getModelsApiUrl(characterId, isModified) {
     isModified: String(Boolean(isModified)),
   });
   return `${API_ROUTES.models}?${params.toString()}`;
+}
+
+export function getDownloadApiUrl(modelId, isModified) {
+  const params = new URLSearchParams({
+    isModified: String(Boolean(isModified)),
+  });
+  return `${API_ROUTES.download}/${encodeURIComponent(modelId)}?${params.toString()}`;
+}
+
+export function getDownloadInfoApiUrl(modelId, isModified) {
+  const params = new URLSearchParams({
+    isModified: String(Boolean(isModified)),
+  });
+  return `${API_ROUTES.downloadInfo}/${encodeURIComponent(modelId)}?${params.toString()}`;
 }
 
 export function getCharactersApiUrl(limit) {

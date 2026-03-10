@@ -97,7 +97,7 @@ export default function Home() {
           )}
         </div>
 
-        <div className="hidden lg:grid grid-cols-[330px_1fr_290px] gap-6 items-start max-w-[1640px] mx-auto">
+        <div className="hidden lg:grid grid-cols-[380px_minmax(0,1fr)_340px] gap-6 items-start max-w-[1760px] mx-auto">
           <ViewerControlsPanel {...controlsPanelProps} />
 
           <ViewerStage {...stageProps} />
