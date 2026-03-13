@@ -46,6 +46,8 @@ const ExpressionSelect = memo(function ExpressionSelect({
             onSelect={onSourceCharChange}
             disabled={disabled}
             showFilter={false}
+            modelType="live2d"
+            hideWithoutModels
           />
 
           <ModelSelect

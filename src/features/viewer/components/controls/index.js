@@ -1,5 +1,6 @@
 export { CharacterSelect } from "./CharacterSelect";
 export { ModelSelect } from "./ModelSelect";
+export { SpineModelSelect } from "./SpineModelSelect";
 export { MotionSelect } from "./MotionSelect";
 export { ExpressionSelect } from "./ExpressionSelect";
 export { SimpleSlider } from "./SimpleSlider";

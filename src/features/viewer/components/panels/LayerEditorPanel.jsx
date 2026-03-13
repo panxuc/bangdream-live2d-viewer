@@ -6,6 +6,7 @@ import { ExpressionSection } from "./ExpressionSection";
 import { ModelSourceSection } from "./ModelSourceSection";
 import { MotionSection } from "./MotionSection";
 import { RemoteModelSection } from "./RemoteModelSection";
+import { RemoteSpineSection } from "./RemoteSpineSection";
 import { TransformSection } from "./TransformSection";
 
 export function LayerEditorPanel({
@@ -19,7 +20,9 @@ export function LayerEditorPanel({
   setActiveModelId,
   handleRemoveModel,
   handleCharacterSelect,
+  handleSpineCharacterSelect,
   handleModelSelect,
+  handleSpineModelSelect,
   handleModelSourceChange,
   handleModelReload,
   handleBodylessChange,
@@ -28,6 +31,7 @@ export function LayerEditorPanel({
   handleBorrowingToggle,
   handleApplyBorrowingToAllLayers,
   handleMotionSelect,
+  handleMotionLoopChange,
   handleMotionOverride,
   handleSourceCharChange,
   handleExpressionOverride,
@@ -60,12 +64,13 @@ export function LayerEditorPanel({
 
       <div className="space-y-5">
         <ModelSourceSection
+          modelType={activeModel.modelType}
           modelSource={activeModel.modelSource}
           isBatching={isBatching}
           handleModelSourceChange={handleModelSourceChange}
         />
 
-        {activeModel.modelSource === "remote" ? (
+        {activeModel.modelSource === "remote" && activeModel.modelType === "live2d" ? (
           <RemoteModelSection
             activeModel={activeModel}
             isBatching={isBatching}
@@ -77,8 +82,18 @@ export function LayerEditorPanel({
             handleHeadlessChange={handleHeadlessChange}
             handleModifiedChange={handleModifiedChange}
           />
+        ) : activeModel.modelSource === "remote" && activeModel.modelType === "spine" ? (
+          <RemoteSpineSection
+            activeModel={activeModel}
+            isBatching={isBatching}
+            isReloading={isReloading}
+            handleSpineCharacterSelect={handleSpineCharacterSelect}
+            handleSpineModelSelect={handleSpineModelSelect}
+            handleModelReload={handleModelReload}
+          />
         ) : (
           <LocalModelUpload
+            modelType={activeModel.modelType}
             disabled={isBatching}
             isUploading={isUploadingLocalModel}
             isReloading={isReloading}
@@ -97,21 +112,25 @@ export function LayerEditorPanel({
         <MotionSection
           activeModel={activeModel}
           isBatching={isBatching}
+          supportsBorrowing={activeModel.modelType === "live2d"}
           handleBorrowingToggle={handleBorrowingToggle}
           handleMotionSelect={handleMotionSelect}
+          handleMotionLoopChange={handleMotionLoopChange}
           handleMotionOverride={handleMotionOverride}
           handleSourceCharChange={handleSourceCharChange}
           handleApplyBorrowingToAllLayers={handleApplyBorrowingToAllLayers}
         />
 
-        <ExpressionSection
-          activeModel={activeModel}
-          isBatching={isBatching}
-          handleExpressionBorrowingToggle={handleExpressionBorrowingToggle}
-          handleExpressionOverride={handleExpressionOverride}
-          handleExpressionSourceCharChange={handleExpressionSourceCharChange}
-          handleExpressionSelect={handleExpressionSelect}
-        />
+        {activeModel.modelType === "live2d" ? (
+          <ExpressionSection
+            activeModel={activeModel}
+            isBatching={isBatching}
+            handleExpressionBorrowingToggle={handleExpressionBorrowingToggle}
+            handleExpressionOverride={handleExpressionOverride}
+            handleExpressionSourceCharChange={handleExpressionSourceCharChange}
+            handleExpressionSelect={handleExpressionSelect}
+          />
+        ) : null}
 
         {(activeModel.modelSource === "local" ? !!activeModel.localModelData : !!activeModel.modelId) ? (
           <TransformSection

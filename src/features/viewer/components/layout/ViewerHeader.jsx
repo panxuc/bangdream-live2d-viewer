@@ -14,7 +14,7 @@ export function ViewerHeader({ isDarkMode, onToggleDarkMode }) {
               <h1 className="text-xl md:text-2xl font-bold text-[#E5004F]" style={{ fontFamily: "'M PLUS Rounded 1c', sans-serif" }}>
                 BanG Dream!
               </h1>
-              <span className="text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">Live2D 查看器</span>
+              <span className="text-[11px] font-medium tracking-[0.12em] text-gray-500 uppercase dark:text-gray-400">Live2D / Spine 查看器</span>
             </div>
           </div>
           <div className="flex items-center gap-2">

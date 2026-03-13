@@ -51,6 +51,8 @@ export const MotionSelect = ({
             onSelect={onSourceCharChange}
             disabled={disabled}
             showFilter={false}
+            modelType="live2d"
+            hideWithoutModels
           />
 
           <ModelSelect

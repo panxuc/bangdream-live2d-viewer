@@ -34,7 +34,14 @@ export function RemoteModelSection({
     <>
       <div className="control-group">
         <label className="text-xs font-bold text-gray-400 uppercase mb-1.5 block px-1">角色</label>
-        <CharacterSelect onSelect={handleCharacterSelect} value={activeModel.characterId} disabled={isBatching} />
+        <CharacterSelect
+          onSelect={handleCharacterSelect}
+          value={activeModel.characterId}
+          disabled={isBatching}
+          modelType="live2d"
+          isModified={activeModel.isModified}
+          hideWithoutModels
+        />
       </div>
 
       <div className="control-group">

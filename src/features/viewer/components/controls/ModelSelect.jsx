@@ -3,6 +3,7 @@
 import { SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { getModelsApiUrl } from "@/src/config/urls";
+import { filterOutGeneralLive2DModelKeys } from "@/src/features/viewer/lib/live2dRemoteUtils";
 import { fetchJson } from "@/src/lib/fetchJson";
 import { useMemo, memo } from "react";
 import { Shirt, Loader2, RotateCw } from "lucide-react";
@@ -31,7 +32,7 @@ const ModelSelect = memo(function ModelSelect({
 
   const modelList = useMemo(() => {
     if (!data || !data.models) return [];
-    return Object.keys(data.models).filter(key => !key.includes('_general'));
+    return filterOutGeneralLive2DModelKeys(Object.keys(data.models));
   }, [data]);
 
   const isDisabled = !characterId || (modelList.length === 0 && !isLoading) || disabled;

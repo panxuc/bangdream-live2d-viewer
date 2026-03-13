@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { filterLive2DModelEntriesByCharacter } from "@/src/features/viewer/lib/live2dRemoteUtils";
 import { getModelIndex } from "@/src/server/live2d/model-index-cache";
 
 export async function GET(request) {
@@ -13,12 +14,7 @@ export async function GET(request) {
   try {
     const { data, fetchedAt, branch } = await getModelIndex(isModified);
 
-    const characterModels = Object.entries(data)
-      .filter(([key]) => key.startsWith(`${characterId}_`) || key.startsWith(`bili_${characterId}_`))
-      .reduce((acc, [key, value]) => {
-        acc[key] = value;
-        return acc;
-      }, {});
+    const characterModels = filterLive2DModelEntriesByCharacter(data, characterId);
 
     return NextResponse.json(
       {

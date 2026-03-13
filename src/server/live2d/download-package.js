@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { EXTERNAL_URLS, ZIP_METADATA, getLive2DBranch } from "@/src/config/urls";
 import { getLive2DBaseUrl } from "./remote";
+import { getLive2DModelDescriptor } from "./model-descriptor-cache";
 
 const FIXED_DATE = new Date(0);
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -35,7 +36,7 @@ const getBundlePath = (bundleName = "") => {
 };
 
 const toAssetUrl = ({ bundleName, fileName }, type, { model, isModified }) => {
-  const branch = getLive2DBranch(isModified);
+  const branch = getLive2DBranch(isModified, model);
   const bundlePath = getBundlePath(bundleName);
   const normalizedFileName =
     type === "texture"
@@ -93,15 +94,9 @@ const addOptionalAsset = async (zipFolder, path, assetUrl) => {
 };
 
 const buildDownloadPackage = async ({ model, isModified }) => {
-  const baseUrl = getLive2DBaseUrl({ isModified, model });
-  const response = await fetch(`${baseUrl}buildData.asset`);
-
-  if (!response.ok) {
-    throw createHttpError(response.status, `Failed to fetch data: ${response.status} ${response.statusText}`);
-  }
-
-  const buildData = await response.json();
-  const baseData = buildData?.Base;
+  const descriptorRecord = await getLive2DModelDescriptor({ model, isModified });
+  const baseUrl = descriptorRecord.modelBaseUrl || getLive2DBaseUrl({ isModified, model });
+  const baseData = descriptorRecord.rawBuildData?.Base;
   if (!baseData) {
     throw createHttpError(500, "buildData.asset is missing Base");
   }

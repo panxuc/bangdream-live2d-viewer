@@ -7,12 +7,14 @@ import { buildLocalModelFromArchive, collectModelCandidates, extractArchiveEntri
 import { toControlModelData, toProcessedMotionGroups } from "@/src/features/viewer/lib/modelData";
 import {
   MAX_MODELS,
+  MODEL_TYPES,
   RESET_ON_CHARACTER_CHANGE,
   RESET_ON_MODEL_CHANGE,
-  RESET_ON_SOURCE_CHANGE,
+  createResetOnSourceChange,
   createModel,
   deepCloneValue,
   getModelSourceSignature,
+  parseSourceOptionKey,
   toNullableSelection,
 } from "@/src/features/viewer/lib/modelState";
 import {
@@ -156,6 +158,19 @@ export function useViewerPageState() {
   const handleCharacterSelect = useCallback(
     (value) => {
       updateActiveModel({
+        modelType: MODEL_TYPES.LIVE2D,
+        modelSource: "remote",
+        characterId: toNullableSelection(value),
+        ...RESET_ON_CHARACTER_CHANGE,
+      });
+    },
+    [updateActiveModel],
+  );
+
+  const handleSpineCharacterSelect = useCallback(
+    (value) => {
+      updateActiveModel({
+        modelType: MODEL_TYPES.SPINE,
         modelSource: "remote",
         characterId: toNullableSelection(value),
         ...RESET_ON_CHARACTER_CHANGE,
@@ -167,6 +182,19 @@ export function useViewerPageState() {
   const handleModelSelect = useCallback(
     (value) => {
       updateActiveModel({
+        modelType: MODEL_TYPES.LIVE2D,
+        modelSource: "remote",
+        modelId: toNullableSelection(value),
+        ...RESET_ON_MODEL_CHANGE,
+      });
+    },
+    [updateActiveModel],
+  );
+
+  const handleSpineModelSelect = useCallback(
+    (value) => {
+      updateActiveModel({
+        modelType: MODEL_TYPES.SPINE,
         modelSource: "remote",
         modelId: toNullableSelection(value),
         ...RESET_ON_MODEL_CHANGE,
@@ -176,21 +204,33 @@ export function useViewerPageState() {
   );
 
   const handleModelSourceChange = useCallback(
-    (source) => {
-      if (source !== "remote" && source !== "local") return;
+    (sourceOptionKey) => {
+      const nextSource = parseSourceOptionKey(sourceOptionKey);
+      if (!nextSource) return;
 
       localArchivesRef.current.delete(activeModelId);
       updateActiveModel({
-        ...RESET_ON_SOURCE_CHANGE,
-        modelSource: source,
+        ...createResetOnSourceChange(nextSource.modelType),
+        modelSource: nextSource.modelSource,
+        modelType: nextSource.modelType,
       });
     },
     [activeModelId, updateActiveModel],
   );
 
   const handleModelLoad = useCallback(
-    (modelId, data) => {
-      updateModelById(modelId, { modelData: toControlModelData(data) });
+    (modelId, payload) => {
+      const controlData = payload?.controlData || toControlModelData(payload);
+      updateModelById(modelId, { modelData: controlData, localModelError: null });
+    },
+    [updateModelById],
+  );
+
+  const handleModelError = useCallback(
+    (modelId, error) => {
+      updateModelById(modelId, {
+        localModelError: error instanceof Error ? error.message : "模型加载失败",
+      });
     },
     [updateModelById],
   );
@@ -202,11 +242,18 @@ export function useViewerPageState() {
     [updateActiveModel],
   );
 
+  const handleMotionLoopChange = useCallback(
+    (checked) => {
+      updateActiveModel({ motionLoop: Boolean(checked) });
+    },
+    [updateActiveModel],
+  );
+
   const handleMotionOverride = useCallback(
     async (sourceCharId, sourceModelId) => {
       const targetModelId = activeModelId;
       const modelSnapshot = getModelById(targetModelId);
-      if (!modelSnapshot) return;
+      if (!modelSnapshot || modelSnapshot.modelType !== MODEL_TYPES.LIVE2D) return;
 
       const requestId = nextModelRequestId(overrideRequestsRef, targetModelId);
       const sourceSignature = getModelSourceSignature(modelSnapshot);
@@ -244,12 +291,13 @@ export function useViewerPageState() {
   );
 
   const handleBorrowingToggle = useCallback(() => {
+    if (activeModel.modelType !== MODEL_TYPES.LIVE2D) return;
     const nextState = !activeModel.isBorrowingMotion;
     updateActiveModel({ isBorrowingMotion: nextState });
     if (!nextState) {
       void handleMotionOverride(null, null);
     }
-  }, [activeModel.isBorrowingMotion, updateActiveModel, handleMotionOverride]);
+  }, [activeModel.isBorrowingMotion, activeModel.modelType, updateActiveModel, handleMotionOverride]);
 
   const handleSourceCharChange = useCallback(
     (charId) => {
@@ -272,7 +320,7 @@ export function useViewerPageState() {
     async (sourceCharId, sourceModelId) => {
       const targetModelId = activeModelId;
       const modelSnapshot = getModelById(targetModelId);
-      if (!modelSnapshot) return;
+      if (!modelSnapshot || modelSnapshot.modelType !== MODEL_TYPES.LIVE2D) return;
 
       const requestId = nextModelRequestId(overrideRequestsRef, targetModelId);
       const sourceSignature = getModelSourceSignature(modelSnapshot);
@@ -310,12 +358,13 @@ export function useViewerPageState() {
   );
 
   const handleExpressionBorrowingToggle = useCallback(() => {
+    if (activeModel.modelType !== MODEL_TYPES.LIVE2D) return;
     const nextState = !activeModel.isBorrowingExpression;
     updateActiveModel({ isBorrowingExpression: nextState });
     if (!nextState) {
       void handleExpressionOverride(null, null);
     }
-  }, [activeModel.isBorrowingExpression, updateActiveModel, handleExpressionOverride]);
+  }, [activeModel.isBorrowingExpression, activeModel.modelType, updateActiveModel, handleExpressionOverride]);
 
   const handleExpressionSourceCharChange = useCallback(
     (charId) => {
@@ -335,6 +384,7 @@ export function useViewerPageState() {
   );
 
   const handleApplyBorrowingToAllLayers = useCallback(async () => {
+    if (activeModel.modelType !== MODEL_TYPES.LIVE2D) return;
     const sourceCharId = activeModel.borrowedCharId;
     const sourceModelId = activeModel.borrowedModelId;
     if (!sourceCharId || !sourceModelId) return;
@@ -345,6 +395,7 @@ export function useViewerPageState() {
 
       const updates = await Promise.all(
         modelsRef.current.map(async (model) => {
+          if (model.modelType !== MODEL_TYPES.LIVE2D) return null;
           const patch = await buildBorrowingPatchForModel({
             targetModel: model,
             sourceCharId,
@@ -416,6 +467,7 @@ export function useViewerPageState() {
   const handleModifiedChange = useCallback(
     (checked) => {
       updateActiveModel({
+        modelType: MODEL_TYPES.LIVE2D,
         modelSource: "remote",
         isModified: checked,
         modelId: null,
@@ -457,9 +509,13 @@ export function useViewerPageState() {
 
       try {
         const archivePayload = await extractArchiveEntries(file);
-        const candidates = collectModelCandidates(archivePayload.entries);
+        const candidates = collectModelCandidates(archivePayload, modelSnapshot.modelType);
         if (candidates.length === 0) {
-          throw new Error("压缩包中没有可选的 model.json / buildData.asset / *.model3.json 文件");
+          throw new Error(
+            modelSnapshot.modelType === MODEL_TYPES.SPINE
+              ? "压缩包中没有可用的 Spine 骨骼文件，请确认包含 .json/.skel、.atlas 和贴图文件"
+              : "压缩包中没有可选的 model.json / buildData.asset / *.model3.json 文件",
+          );
         }
 
         if (!isCurrentModelRequest(localArchiveUploadRequestsRef, targetModelId, requestId)) return;
@@ -526,12 +582,23 @@ export function useViewerPageState() {
 
       const selectedCandidateId = pathOverride || modelSnapshot.localModelPath;
       if (!selectedCandidateId) {
-        updateModelById(targetModelId, { localModelError: "请选择 model.json 或 buildData.asset" });
+        updateModelById(targetModelId, {
+          localModelError:
+            modelSnapshot.modelType === MODEL_TYPES.SPINE
+              ? "请选择一个 Spine skeleton 文件"
+              : "请选择 model.json 或 buildData.asset",
+        });
         return;
       }
 
       const requestId = nextModelRequestId(localModelApplyRequestsRef, targetModelId);
-      const sourceSignature = getModelSourceSignature(modelSnapshot);
+      const sourceSignatures = [
+        getModelSourceSignature(modelSnapshot),
+        getModelSourceSignature({
+          ...modelSnapshot,
+          localModelPath: selectedCandidateId,
+        }),
+      ];
 
       try {
         const result = await buildLocalModelFromArchive({
@@ -539,15 +606,17 @@ export function useViewerPageState() {
           selectedCandidateId,
           candidates: modelSnapshot.localModelCandidates,
           localModelFileName: modelSnapshot.localModelFileName,
+          modelType: modelSnapshot.modelType,
         });
 
         if (!isCurrentModelRequest(localModelApplyRequestsRef, targetModelId, requestId)) return;
 
         const currentModel = getModelById(targetModelId);
-        if (!currentModel || getModelSourceSignature(currentModel) !== sourceSignature) return;
+        if (!currentModel || !sourceSignatures.includes(getModelSourceSignature(currentModel))) return;
 
         updateModelById(targetModelId, {
           modelSource: "local",
+          localModelPath: selectedCandidateId,
           localModelData: result.localModelData,
           customModelData: null,
           modelData: toControlModelData(result.localModelData),
@@ -594,10 +663,14 @@ export function useViewerPageState() {
     handleMoveModel,
     handleReorderModels,
     handleCharacterSelect,
+    handleSpineCharacterSelect,
     handleModelSelect,
+    handleSpineModelSelect,
     handleModelSourceChange,
     handleModelLoad,
+    handleModelError,
     handleMotionSelect,
+    handleMotionLoopChange,
     handleMotionOverride,
     handleBorrowingToggle,
     handleApplyBorrowingToAllLayers,

@@ -115,6 +115,13 @@ export function LayerListPanel({
                       ? `角色 ${model.characterId}`
                       : "空图层"}
               </span>
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${
+                model.modelType === "spine"
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-300"
+                  : "bg-sky-500/10 text-sky-600 dark:text-sky-300"
+              }`}>
+                {model.modelType === "spine" ? "Spine" : "Live2D"}
+              </span>
               <div className="flex items-center gap-1 flex-shrink-0">
                 {model.isModified ? <Sparkles className="w-3 h-3 text-[#E5004F]" /> : null}
                 {model.borrowedModelId ? <Shuffle className="w-3 h-3 text-blue-500" /> : null}

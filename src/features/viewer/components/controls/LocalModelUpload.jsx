@@ -2,11 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import { SelectItem } from "@/components/ui/select";
+import { MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
 import { FileJson, RotateCw, Upload } from "lucide-react";
 import { useRef } from "react";
 import { SelectField, selectItemClass } from "./shared/SelectField";
 
 export function LocalModelUpload({
+  modelType = MODEL_TYPES.LIVE2D,
   disabled,
   isUploading,
   isReloading = false,
@@ -21,6 +23,9 @@ export function LocalModelUpload({
   onReload,
 }) {
   const fileInputRef = useRef(null);
+  const isSpine = modelType === MODEL_TYPES.SPINE;
+  const sectionLabel = isSpine ? "本地 Spine" : "本地 Live2D";
+  const uploadLabel = isSpine ? "上传 Spine 压缩包" : "上传 Live2D 压缩包";
 
   const handlePickFile = () => {
     if (!disabled && fileInputRef.current) {
@@ -49,7 +54,7 @@ export function LocalModelUpload({
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase">
-          本地模型
+          {sectionLabel}
         </div>
       </div>
 
@@ -62,7 +67,7 @@ export function LocalModelUpload({
         >
           <span className="inline-flex items-center justify-between w-full">
             <Upload className="w-4 h-4" />
-            <span className="text-center flex-1">{isUploading ? "读取中..." : "上传压缩包"}</span>
+            <span className="text-center flex-1">{isUploading ? "读取中..." : uploadLabel}</span>
             <Upload className="w-4 h-4 opacity-0" />
           </span>
         </button>
@@ -80,15 +85,15 @@ export function LocalModelUpload({
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <SelectField
-            key={localArchiveToken || "local-archive-empty"}
-            value={localModelPath || undefined}
+            key={`${localArchiveToken || "local-archive-empty"}:${localModelPath || "none"}`}
+            value={localModelPath ?? undefined}
             onValueChange={async (value) => {
               onSelectModelPath(value);
               await onApplyModel(value);
             }}
             disabled={localSelectDisabled}
             icon={FileJson}
-            placeholder=""
+            placeholder={isSpine ? "请选择 skeleton 文件" : "请选择模型入口文件"}
             showNone={false}
             emptyState={null}
           >

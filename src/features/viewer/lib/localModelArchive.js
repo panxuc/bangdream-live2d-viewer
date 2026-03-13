@@ -1,8 +1,10 @@
 import JSZip from "jszip";
 import { EXTERNAL_URLS, PUBLIC_ASSET_PATHS } from "@/src/config/urls";
+import { MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
+import { collectSpineCandidateEntries, findSpineAtlasEntry, isSpineBinaryPath } from "@/src/features/viewer/lib/spineArchiveUtils";
 import { loadPublicScript } from "@/src/lib/loadPublicScript";
 
-const MODEL_FILE_PATTERNS = ["model.json", "builddata.asset", ".model3.json"];
+const LIVE2D_MODEL_FILE_PATTERNS = ["model.json", "builddata.asset", ".model3.json"];
 const FILE_PATH_KEYS = ["model", "physics", "pose", "userData", "sound", "file"];
 const EXCLUDED_LOCAL_MODEL_SUFFIXES = ["exp.json", "physics.json", "transitiondata.asset"];
 const LIBARCHIVE_FILE_TYPES = {
@@ -12,6 +14,7 @@ const LIBARCHIVE_FILE_TYPES = {
 const isObject = (value) => value !== null && typeof value === "object";
 const toLowerPath = (path) => path.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
 const isExternalUrl = (value) => /^(https?:|blob:|data:|\/)/i.test(value);
+const getBaseName = (path) => path.replace(/\\/g, "/").split("/").pop() || path;
 const getDirName = (path) => {
   const normalized = path.replace(/\\/g, "/");
   const index = normalized.lastIndexOf("/");
@@ -70,6 +73,104 @@ const decodeZipFileName = (bytes) => {
       return new TextDecoder().decode(bytes);
     }
   }
+};
+
+const resolveArchiveEntryKeys = (archive, path) =>
+  archive.pathToEntryKeys.get(toLowerPath(path.replace(/\\/g, "/").replace(/^\/+/, ""))) || [];
+
+const loadArchiveFileContent = (archive, path, preferredEntryKey = null) => {
+  if (preferredEntryKey && archive.filesMap.has(preferredEntryKey)) {
+    return archive.filesMap.get(preferredEntryKey) || null;
+  }
+
+  const resolvedEntryKeys = resolveArchiveEntryKeys(archive, path);
+  if (resolvedEntryKeys.length === 0) return null;
+  return archive.filesMap.get(resolvedEntryKeys[0]) || null;
+};
+
+const parseJsonBytes = (bytes) => {
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+};
+
+const parseSpineAtlasPageNames = (atlasText) => {
+  const lines = atlasText.split(/\r\n|\r|\n/);
+  const pageNames = [];
+  let expectingPageName = true;
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      expectingPageName = true;
+      return;
+    }
+
+    if (expectingPageName) {
+      pageNames.push(line);
+      expectingPageName = false;
+    }
+  });
+
+  return pageNames;
+};
+
+const collectLive2DCandidates = (entries) => {
+  const candidates = entries
+    .filter((entry) => {
+      const lower = entry.path.toLowerCase();
+      const isModelLike = lower.endsWith(".json") || lower.endsWith(".asset");
+      const isExcluded = EXCLUDED_LOCAL_MODEL_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+      return isModelLike && !isExcluded;
+    })
+    .sort((a, b) => {
+      const aName = a.path.toLowerCase();
+      const bName = b.path.toLowerCase();
+      const aPriority = LIVE2D_MODEL_FILE_PATTERNS.findIndex((pattern) => aName.endsWith(pattern));
+      const bPriority = LIVE2D_MODEL_FILE_PATTERNS.findIndex((pattern) => bName.endsWith(pattern));
+      const normA = aPriority === -1 ? LIVE2D_MODEL_FILE_PATTERNS.length : aPriority;
+      const normB = bPriority === -1 ? LIVE2D_MODEL_FILE_PATTERNS.length : bPriority;
+      if (normA !== normB) return normA - normB;
+      return a.path.localeCompare(b.path);
+    });
+
+  const totalByPath = new Map();
+  candidates.forEach((entry) => {
+    totalByPath.set(entry.path, (totalByPath.get(entry.path) || 0) + 1);
+  });
+
+  const seenByPath = new Map();
+  return candidates.map((entry, index) => {
+    const seen = (seenByPath.get(entry.path) || 0) + 1;
+    seenByPath.set(entry.path, seen);
+    const total = totalByPath.get(entry.path) || 1;
+    const suffix = total > 1 ? ` [${seen}/${total}]` : "";
+    return {
+      id: `candidate-${index}`,
+      path: entry.path,
+      entryKey: entry.key,
+      label: `${entry.path}${suffix}`,
+    };
+  });
+};
+
+const collectSpineCandidates = (archive) => {
+  const candidates = collectSpineCandidateEntries({
+    entries: archive.entries,
+    loadFileContent: (path, preferredEntryKey) => loadArchiveFileContent(archive, path, preferredEntryKey),
+    parseJsonBytes,
+  });
+
+  return candidates.map((item, index) => ({
+    id: `candidate-${index}`,
+    path: item.entry.path,
+    entryKey: item.entry.key,
+    label: `${item.entry.path} (${getBaseName(item.atlasEntry.path)})`,
+    atlasPath: item.atlasEntry.path,
+    skeletonJson: item.skeletonJson,
+  }));
 };
 
 let libarchiveRuntimePromise = null;
@@ -357,43 +458,13 @@ export const extractArchiveEntries = async (file) => {
   };
 };
 
-export const collectModelCandidates = (entries) => {
-  const candidates = entries
-    .filter((entry) => {
-      const lower = entry.path.toLowerCase();
-      const isModelLike = lower.endsWith(".json") || lower.endsWith(".asset");
-      const isExcluded = EXCLUDED_LOCAL_MODEL_SUFFIXES.some((suffix) => lower.endsWith(suffix));
-      return isModelLike && !isExcluded;
-    })
-    .sort((a, b) => {
-      const aName = a.path.toLowerCase();
-      const bName = b.path.toLowerCase();
-      const aPriority = MODEL_FILE_PATTERNS.findIndex((pattern) => aName.endsWith(pattern));
-      const bPriority = MODEL_FILE_PATTERNS.findIndex((pattern) => bName.endsWith(pattern));
-      const normA = aPriority === -1 ? MODEL_FILE_PATTERNS.length : aPriority;
-      const normB = bPriority === -1 ? MODEL_FILE_PATTERNS.length : bPriority;
-      if (normA !== normB) return normA - normB;
-      return a.path.localeCompare(b.path);
-    });
+export const collectModelCandidates = (archiveOrEntries, modelType = MODEL_TYPES.LIVE2D) => {
+  if (modelType === MODEL_TYPES.SPINE) {
+    return collectSpineCandidates(archiveOrEntries);
+  }
 
-  const totalByPath = new Map();
-  candidates.forEach((entry) => {
-    totalByPath.set(entry.path, (totalByPath.get(entry.path) || 0) + 1);
-  });
-
-  const seenByPath = new Map();
-  return candidates.map((entry, index) => {
-    const seen = (seenByPath.get(entry.path) || 0) + 1;
-    seenByPath.set(entry.path, seen);
-    const total = totalByPath.get(entry.path) || 1;
-    const suffix = total > 1 ? ` [${seen}/${total}]` : "";
-    return {
-      id: `candidate-${index}`,
-      path: entry.path,
-      entryKey: entry.key,
-      label: `${entry.path}${suffix}`,
-    };
-  });
+  const entries = Array.isArray(archiveOrEntries) ? archiveOrEntries : archiveOrEntries.entries;
+  return collectLive2DCandidates(entries);
 };
 
 export const buildLocalModelFromArchive = async ({
@@ -401,21 +472,66 @@ export const buildLocalModelFromArchive = async ({
   selectedCandidateId,
   candidates,
   localModelFileName,
+  modelType = MODEL_TYPES.LIVE2D,
 }) => {
   const selectedCandidate = candidates.find((item) => item.id === selectedCandidateId);
   const modelPath = selectedCandidate?.path || selectedCandidateId;
-  const resolveArchiveEntryKeys = (path) =>
-    archive.pathToEntryKeys.get(toLowerPath(path.replace(/\\/g, "/").replace(/^\/+/, ""))) || [];
-  const loadArchiveFileContent = (path, preferredEntryKey = null) => {
-    if (preferredEntryKey && archive.filesMap.has(preferredEntryKey)) {
-      return archive.filesMap.get(preferredEntryKey) || null;
+  if (modelType === MODEL_TYPES.SPINE) {
+    const skeletonContent = loadArchiveFileContent(archive, modelPath, selectedCandidate?.entryKey || null);
+    if (!skeletonContent) {
+      throw new Error(`未找到 Spine 骨骼文件: ${modelPath}`);
     }
-    const resolvedEntryKeys = resolveArchiveEntryKeys(path);
-    if (resolvedEntryKeys.length === 0) return null;
-    return archive.filesMap.get(resolvedEntryKeys[0]) || null;
-  };
 
-  const modelContent = loadArchiveFileContent(modelPath, selectedCandidate?.entryKey || null);
+    const atlasPath = selectedCandidate?.atlasPath || findSpineAtlasEntry(archive.entries, modelPath)?.path;
+    if (!atlasPath) {
+      throw new Error(`未找到与 ${getBaseName(modelPath)} 对应的 atlas 文件`);
+    }
+
+    const atlasContent = loadArchiveFileContent(archive, atlasPath);
+    if (!atlasContent) {
+      throw new Error(`未找到 Spine atlas 文件: ${atlasPath}`);
+    }
+
+    const atlasText = new TextDecoder().decode(atlasContent);
+    const atlasDir = getDirName(atlasPath);
+    const pageNames = parseSpineAtlasPageNames(atlasText);
+    const images = {};
+
+    for (const pageName of pageNames) {
+      const normalizedPagePath = joinAndNormalizePath(atlasDir, pageName);
+      const imageContent = loadArchiveFileContent(archive, normalizedPagePath);
+      if (!imageContent) {
+        throw new Error(`未找到 Spine 贴图: ${normalizedPagePath}`);
+      }
+
+      images[pageName] = {
+        path: normalizedPagePath,
+        dataUrl: toDataUrl(imageContent, getMimeType(normalizedPagePath)),
+      };
+    }
+
+    const lowerModelPath = modelPath.toLowerCase();
+    const skeletonJson = lowerModelPath.endsWith(".json")
+      ? selectedCandidate?.skeletonJson || parseJsonBytes(skeletonContent)
+      : null;
+    const localModelLabel = localModelFileName ? `${localModelFileName}/${modelPath}` : modelPath;
+
+    return {
+      localModelData: {
+        kind: MODEL_TYPES.SPINE,
+        skeletonPath: modelPath,
+        skeletonFileType: isSpineBinaryPath(lowerModelPath) ? "binary" : "json",
+        skeletonJson,
+        skeletonBinary: isSpineBinaryPath(lowerModelPath) ? skeletonContent.slice() : null,
+        atlasPath,
+        atlasText,
+        images,
+      },
+      localModelLabel,
+    };
+  }
+
+  const modelContent = loadArchiveFileContent(archive, modelPath, selectedCandidate?.entryKey || null);
   if (!modelContent) {
     throw new Error(`未找到文件: ${modelPath}`);
   }
@@ -429,7 +545,7 @@ export const buildLocalModelFromArchive = async ({
     }
 
     const normalized = joinAndNormalizePath(currentDir, relativePath);
-    const content = loadArchiveFileContent(normalized);
+    const content = loadArchiveFileContent(archive, normalized);
     if (!content) {
       return relativePath;
     }

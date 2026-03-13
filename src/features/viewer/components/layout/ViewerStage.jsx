@@ -1,13 +1,13 @@
 "use client";
 
-import { Live2DCanvas } from "@/src/features/viewer/components/canvas";
+import { ViewerCanvas } from "@/src/features/viewer/components/canvas";
 
-export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, onSyncComplete }) {
+export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, onModelError, onSyncComplete }) {
   const activeCount = models.filter((model) => {
     if (model.modelSource === "local") {
       return !!model.localModelData;
     }
-    return !!model.modelId;
+    return !!model.modelId || !!model.customModelData;
   }).length;
 
   return (
@@ -25,11 +25,18 @@ export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, o
             </div>
           </div>
           <div className="relative aspect-square bg-white/40 dark:bg-[#1b1821]">
-            <Live2DCanvas ref={canvasRef} models={models} onModelLoad={onModelLoad} onSyncComplete={onSyncComplete} backgroundColor={backgroundColor} />
+            <ViewerCanvas
+              ref={canvasRef}
+              models={models}
+              onModelLoad={onModelLoad}
+              onModelError={onModelError}
+              onSyncComplete={onSyncComplete}
+              backgroundColor={backgroundColor}
+            />
             {!activeCount && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-gray-500 dark:text-gray-300 pointer-events-none">
-                <p className="text-sm font-bold tracking-wide">选择一个角色开始舞台预览</p>
-                <p className="text-xs opacity-70 mt-1">在左侧面板添加你的第一个 Live2D 图层。</p>
+                <p className="text-sm font-bold tracking-wide">选择一个资源开始舞台预览</p>
+                <p className="text-xs opacity-70 mt-1">在左侧面板添加你的第一个 Live2D 或 Spine 图层。</p>
               </div>
             )}
           </div>

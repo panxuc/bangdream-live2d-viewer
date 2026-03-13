@@ -1,8 +1,37 @@
 const getBaseName = (path) => path.replace(/\\/g, "/").split("/").pop() || path;
+const toMotionMapFromNames = (names = []) => {
+  const normalizedNames = names.filter((name) => typeof name === "string" && name);
+  if (normalizedNames.length === 0) return null;
+
+  return Object.fromEntries(normalizedNames.map((name) => [name, [{ name }]]));
+};
+
+export const toSpineControlModelData = (source) => {
+  if (!source) {
+    return { motions: null, expressions: [] };
+  }
+
+  const animations = Array.isArray(source.animations)
+    ? source.animations.map((animation) => animation?.name).filter(Boolean)
+    : Object.keys(source.animations || {});
+
+  return {
+    motions: toMotionMapFromNames(animations),
+    expressions: [],
+  };
+};
 
 export const toControlModelData = (data) => {
   if (!data) {
     return { motions: null, expressions: [] };
+  }
+
+  if (data.kind === "spine") {
+    return toSpineControlModelData(data.skeletonJson || data.spineData || null);
+  }
+
+  if (data.skeleton?.spine && Array.isArray(data.bones)) {
+    return toSpineControlModelData(data);
   }
 
   if (data.FileReferences) {

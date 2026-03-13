@@ -1,13 +1,24 @@
-import { Asset2JsonConverter } from "./asset-converter";
 import { getLive2DFileUrl } from "./remote";
+import { getLive2DModelDescriptor } from "./model-descriptor-cache";
 
 const MTN_PARAM_IMPORT_LINE = /^\s*PARAM_IMPORT=.*(?:\r?\n)?/gim;
 
 export async function createLive2DAssetResponse({ model, path = [], isModified = false }) {
   const filePath = Array.isArray(path) ? path.join("/") : "";
-  const currentPath = model.replace("_rip", "");
-  const fullUrl = getLive2DFileUrl({ isModified, model, filePath });
+  if (filePath === "buildData.asset") {
+    const descriptorRecord = await getLive2DModelDescriptor({ model, isModified });
 
+    return {
+      ok: true,
+      isJson: true,
+      body: descriptorRecord.processedBuildData,
+      headers: {
+        "Cache-Control": "public, max-age=3600, s-maxage=86400",
+      },
+    };
+  }
+
+  const fullUrl = getLive2DFileUrl({ isModified, model, filePath });
   const response = await fetch(fullUrl);
 
   if (!response.ok) {
@@ -15,20 +26,6 @@ export async function createLive2DAssetResponse({ model, path = [], isModified =
       ok: false,
       status: response.status,
       body: { error: `Failed to fetch data: ${response.status} ${response.statusText}` },
-    };
-  }
-
-  if (filePath === "buildData.asset") {
-    const data = await response.json();
-    const processedData = Asset2JsonConverter.processFile(data, currentPath);
-
-    return {
-      ok: true,
-      isJson: true,
-      body: processedData,
-      headers: {
-        "Cache-Control": "public, max-age=3600, s-maxage=86400",
-      },
     };
   }
 

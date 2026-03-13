@@ -12,6 +12,7 @@ export default function Home() {
     canvasRef: state.canvasRef,
     backgroundColor: state.backgroundColor,
     onModelLoad: state.handleModelLoad,
+    onModelError: state.handleModelError,
     onSyncComplete: state.handleCanvasSyncComplete,
   };
   const controlsPanelProps = {
@@ -30,7 +31,9 @@ export default function Home() {
     handleMoveModel: state.handleMoveModel,
     handleReorderModels: state.handleReorderModels,
     handleCharacterSelect: state.handleCharacterSelect,
+    handleSpineCharacterSelect: state.handleSpineCharacterSelect,
     handleModelSelect: state.handleModelSelect,
+    handleSpineModelSelect: state.handleSpineModelSelect,
     handleModelSourceChange: state.handleModelSourceChange,
     handleModelReload: state.handleModelReload,
     handleBodylessChange: state.handleBodylessChange,
@@ -39,6 +42,7 @@ export default function Home() {
     handleBorrowingToggle: state.handleBorrowingToggle,
     handleApplyBorrowingToAllLayers: state.handleApplyBorrowingToAllLayers,
     handleMotionSelect: state.handleMotionSelect,
+    handleMotionLoopChange: state.handleMotionLoopChange,
     handleMotionOverride: state.handleMotionOverride,
     handleSourceCharChange: state.handleSourceCharChange,
     handleExpressionOverride: state.handleExpressionOverride,

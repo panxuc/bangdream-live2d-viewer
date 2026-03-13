@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { saveAs } from "file-saver";
 import { Download, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getDownloadApiUrl, getDownloadInfoApiUrl } from "@/src/config/urls";
+import {
+  getDownloadApiUrl,
+  getDownloadInfoApiUrl,
+  getSpineDownloadApiUrl,
+  getSpineDownloadInfoApiUrl,
+} from "@/src/config/urls";
 import { fetchJson } from "@/src/lib/fetchJson";
 
 const formatZipSize = (bytes) => {
@@ -14,17 +19,21 @@ const formatZipSize = (bytes) => {
   return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 2 : 1)}MB`;
 };
 
-export function ModelDownloadButton({ modelId, isModified, disabled = false }) {
+export function ModelDownloadButton({ modelId, isModified, disabled = false, modelType = "live2d" }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSizeLabel, setDownloadSizeLabel] = useState(null);
+  const isSpine = modelType === "spine";
   const downloadUrl = useMemo(
-    () => (modelId ? getDownloadApiUrl(modelId, isModified) : null),
-    [modelId, isModified],
+    () => (modelId ? (isSpine ? getSpineDownloadApiUrl(modelId) : getDownloadApiUrl(modelId, isModified)) : null),
+    [isSpine, modelId, isModified],
   );
   const downloadInfoUrl = useMemo(
-    () => (modelId ? getDownloadInfoApiUrl(modelId, isModified) : null),
-    [modelId, isModified],
+    () => (modelId ? (isSpine ? getSpineDownloadInfoApiUrl(modelId) : getDownloadInfoApiUrl(modelId, isModified)) : null),
+    [isSpine, modelId, isModified],
   );
+  const buttonTitle = downloadUrl
+    ? (isSpine ? "下载当前 Spine ZIP" : "下载当前模型 ZIP")
+    : (isSpine ? "请先选择一个在线 Spine 模型" : "请先选择一个在线服装模型");
 
   useEffect(() => {
     if (!downloadInfoUrl) {
@@ -92,7 +101,7 @@ export function ModelDownloadButton({ modelId, isModified, disabled = false }) {
       onClick={handleDownload}
       disabled={disabled || !downloadUrl || isDownloading}
       className="h-11 w-11 shrink-0 rounded-xl border-[#E5004F]/20 dark:border-[#ff76a7]/25 bg-white/85 dark:bg-[#2a1d35]/70 hover:bg-[#E5004F]/10 hover:border-[#E5004F]/50 hover:text-[#E5004F] transition-all disabled:opacity-50 px-1 py-1"
-      title={downloadUrl ? "下载当前模型 ZIP" : "请先选择一个在线服装模型"}
+      title={buttonTitle}
     >
       <span className="flex h-full w-full flex-col items-center justify-center leading-none">
         {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}

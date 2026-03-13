@@ -3,13 +3,36 @@
 import { useState, useMemo, useCallback, memo, useEffect } from "react";
 import { SelectItem } from "@/components/ui/select";
 import { useCharacters, useCategories } from "@/src/features/catalog/hooks/useCatalog";
+import { getCharacterAvailabilityApiUrl } from "@/src/config/urls";
+import { hasAvailableModelForCharacter } from "@/src/features/viewer/lib/characterIdAliases";
+import { fetchJson } from "@/src/lib/fetchJson";
 import { Users } from "lucide-react";
 import { CharacterFilterPopover } from "./CharacterFilterPopover";
 import { SelectField, selectItemClass } from "./shared/SelectField";
+import useSWR from "swr";
 
-const CharacterSelect = memo(function CharacterSelect({ onSelect, value, disabled, showFilter = true }) {
+const CharacterSelect = memo(function CharacterSelect({
+  onSelect,
+  value,
+  disabled,
+  showFilter = true,
+  modelType = null,
+  isModified = false,
+  hideWithoutModels = false,
+}) {
   const { characters = [], loading: charactersLoading } = useCharacters();
   const { categories: allCategories = [] } = useCategories();
+  const availabilityKey =
+    hideWithoutModels && modelType ? getCharacterAvailabilityApiUrl(modelType, isModified) : null;
+  const { data: availabilityData, isLoading: availabilityLoading } = useSWR(
+    availabilityKey,
+    fetchJson,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000,
+      keepPreviousData: true,
+    },
+  );
 
   const [selectedCategories, setSelectedCategories] = useState({});
   const [filterMode, setFilterMode] = useState("whitelist");
@@ -22,13 +45,24 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value, disable
 
   const filteredCharacters = useMemo(() => {
     if (!characters.length) return [];
+    const hasAvailabilityData = Array.isArray(availabilityData?.availableCharacterIds);
+    const availableCharacterIds = new Set(hasAvailabilityData ? availabilityData.availableCharacterIds : []);
 
     return characters.filter(char => {
+      if (
+        hideWithoutModels &&
+        hasAvailabilityData &&
+        !availabilityLoading &&
+        !hasAvailableModelForCharacter(char.id, availableCharacterIds)
+      ) {
+        return false;
+      }
+
       const hasSelectedCategory = char.category.some(cat => selectedCategories[cat]);
       const hasUnselectedCategory = char.category.some(cat => !selectedCategories[cat]);
       return filterMode === "whitelist" ? hasSelectedCategory : hasUnselectedCategory;
     });
-  }, [characters, selectedCategories, filterMode]);
+  }, [characters, selectedCategories, filterMode, availabilityData?.availableCharacterIds, availabilityLoading, hideWithoutModels]);
 
   const handleCategoryChange = useCallback((category) => {
     setSelectedCategories(prev => ({
@@ -48,7 +82,7 @@ const CharacterSelect = memo(function CharacterSelect({ onSelect, value, disable
           icon={Users}
           placeholder="请选择角色..."
           emptyState={
-            charactersLoading ? (
+            charactersLoading || (hideWithoutModels && availabilityLoading) ? (
               <div className="p-2 text-center text-sm text-muted-foreground animate-pulse">加载中...</div>
             ) : filteredCharacters.length === 0 ? (
               <div className="p-2 text-center text-sm text-muted-foreground">未找到角色</div>

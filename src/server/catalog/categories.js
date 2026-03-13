@@ -19,5 +19,6 @@ export const categories = [
   "家人朋友",
   "男性",
   "非人类",
+  "路人",
   "其他",
 ];
