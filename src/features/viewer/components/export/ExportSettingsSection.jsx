@@ -1,8 +1,6 @@
-"use client";
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "../../../../../components/ui/button.jsx";
+import { Input } from "../../../../../components/ui/input.jsx";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../../components/ui/select.jsx";
 import { Check, Pencil, Scaling } from "lucide-react";
 import {
   ID_PHOTO_BG,
@@ -11,7 +9,7 @@ import {
   isCustomBackground,
   isDarkBackground,
   normalizeCustomBackground,
-} from "@/src/features/viewer/lib/backgroundStyle";
+} from "../../lib/backgroundStyle.js";
 
 export const BACKGROUND_OPTIONS = [
   { id: "transparent", color: "transparent", label: "透明", border: "border-gray-200" },

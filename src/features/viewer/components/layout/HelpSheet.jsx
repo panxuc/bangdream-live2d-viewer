@@ -1,5 +1,3 @@
-"use client";
-
 import {
   BookOpen,
   CircleHelp,
@@ -20,7 +18,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet";
+} from "../../../../../components/ui/sheet.jsx";
 
 const sections = [
   {

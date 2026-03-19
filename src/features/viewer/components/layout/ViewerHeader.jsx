@@ -1,7 +1,5 @@
-"use client";
-
 import { Moon, Sun } from "lucide-react";
-import { HelpSheet } from "./HelpSheet";
+import { HelpSheet } from "./HelpSheet.jsx";
 
 export function ViewerHeader({ isDarkMode, onToggleDarkMode }) {
   return (

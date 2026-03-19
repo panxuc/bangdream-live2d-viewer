@@ -1,13 +1,11 @@
-"use client";
-
-import { LocalModelUpload } from "@/src/features/viewer/components/controls";
+import { LocalModelUpload } from "../controls/index.js";
 import { Settings, Trash2 } from "lucide-react";
-import { ExpressionSection } from "./ExpressionSection";
-import { ModelSourceSection } from "./ModelSourceSection";
-import { MotionSection } from "./MotionSection";
-import { RemoteModelSection } from "./RemoteModelSection";
-import { RemoteSpineSection } from "./RemoteSpineSection";
-import { TransformSection } from "./TransformSection";
+import { ExpressionSection } from "./ExpressionSection.jsx";
+import { ModelSourceSection } from "./ModelSourceSection.jsx";
+import { MotionSection } from "./MotionSection.jsx";
+import { RemoteModelSection } from "./RemoteModelSection.jsx";
+import { RemoteSpineSection } from "./RemoteSpineSection.jsx";
+import { TransformSection } from "./TransformSection.jsx";
 
 export function LayerEditorPanel({
   models,

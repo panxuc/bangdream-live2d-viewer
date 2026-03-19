@@ -1,3 +1,1 @@
-"use client";
-
-export { ViewerCanvas as Live2DCanvas } from "./ViewerCanvas";
+export { ViewerCanvas as Live2DCanvas } from "./ViewerCanvas.jsx";

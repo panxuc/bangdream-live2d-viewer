@@ -1,8 +1,8 @@
-export { CharacterSelect } from "./CharacterSelect";
-export { ModelSelect } from "./ModelSelect";
-export { SpineModelSelect } from "./SpineModelSelect";
-export { MotionSelect } from "./MotionSelect";
-export { ExpressionSelect } from "./ExpressionSelect";
-export { SimpleSlider } from "./SimpleSlider";
-export { LocalModelUpload } from "./LocalModelUpload";
-export { ModelDownloadButton } from "./ModelDownloadButton";
+export { CharacterSelect } from "./CharacterSelect.jsx";
+export { ModelSelect } from "./ModelSelect.jsx";
+export { SpineModelSelect } from "./SpineModelSelect.jsx";
+export { MotionSelect } from "./MotionSelect.jsx";
+export { ExpressionSelect } from "./ExpressionSelect.jsx";
+export { SimpleSlider } from "./SimpleSlider.jsx";
+export { LocalModelUpload } from "./LocalModelUpload.jsx";
+export { ModelDownloadButton } from "./ModelDownloadButton.jsx";

@@ -1,6 +1,4 @@
-"use client";
-
-import { ViewerCanvas } from "@/src/features/viewer/components/canvas";
+import { ViewerCanvas } from "../canvas/index.js";
 
 export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, onModelError, onSyncComplete }) {
   const activeCount = models.filter((model) => {

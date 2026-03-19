@@ -1,11 +1,9 @@
-"use client";
-
 import { useState, useCallback, memo, useMemo, useEffect } from "react";
-import { DEFAULT_CUSTOM_BACKGROUND, decodeCustomBackground } from "@/src/features/viewer/lib/backgroundStyle";
-import { BatchExportSection } from "./BatchExportSection";
-import { ExportSettingsSection } from "./ExportSettingsSection";
-import { useBatchExportController } from "@/src/features/viewer/hooks/useBatchExportController";
-import { useCanvasImageExport } from "@/src/features/viewer/hooks/useCanvasImageExport";
+import { DEFAULT_CUSTOM_BACKGROUND, decodeCustomBackground } from "../../lib/backgroundStyle.js";
+import { BatchExportSection } from "./BatchExportSection.jsx";
+import { ExportSettingsSection } from "./ExportSettingsSection.jsx";
+import { useBatchExportController } from "../../hooks/useBatchExportController.js";
+import { useCanvasImageExport } from "../../hooks/useCanvasImageExport.js";
 
 const SaveButton = memo(function SaveButton({
   modelData,

@@ -1,8 +1,8 @@
 import JSZip from "jszip";
-import { EXTERNAL_URLS, PUBLIC_ASSET_PATHS } from "@/src/config/urls";
-import { MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
-import { collectSpineCandidateEntries, findSpineAtlasEntry, isSpineBinaryPath } from "@/src/features/viewer/lib/spineArchiveUtils";
-import { loadPublicScript } from "@/src/lib/loadPublicScript";
+import { EXTERNAL_URLS, PUBLIC_ASSET_PATHS } from "../../../config/urls.js";
+import { MODEL_TYPES } from "./modelState.js";
+import { collectSpineCandidateEntries, findSpineAtlasEntry, isSpineBinaryPath } from "./spineArchiveUtils.js";
+import { loadPublicScript } from "../../../lib/loadPublicScript.js";
 
 const LIVE2D_MODEL_FILE_PATTERNS = ["model.json", "builddata.asset", ".model3.json"];
 const FILE_PATH_KEYS = ["model", "physics", "pose", "userData", "sound", "file"];

@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const ROOT = process.cwd();
-const TARGET_DIRS = ["app", "src", "tests"];
+const TARGET_DIRS = ["src", "components", "lib", "server", "tests"];
 const PATTERNS = [
   { pattern: "<<<<<<<", message: "merge conflict marker" },
   { pattern: ">>>>>>>", message: "merge conflict marker" },

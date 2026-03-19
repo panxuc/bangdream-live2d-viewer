@@ -1,4 +1,4 @@
-export { ViewerHeader } from "./ViewerHeader";
-export { ViewerStage } from "./ViewerStage";
-export { ViewerFooter } from "./ViewerFooter";
-export { HelpSheet } from "./HelpSheet";
+export { ViewerHeader } from "./ViewerHeader.jsx";
+export { ViewerStage } from "./ViewerStage.jsx";
+export { ViewerFooter } from "./ViewerFooter.jsx";
+export { HelpSheet } from "./HelpSheet.jsx";

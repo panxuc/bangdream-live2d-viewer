@@ -1,14 +1,12 @@
-"use client";
-
-import { SelectItem } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { getModelsApiUrl } from "@/src/config/urls";
-import { filterOutGeneralLive2DModelKeys } from "@/src/features/viewer/lib/live2dRemoteUtils";
-import { fetchJson } from "@/src/lib/fetchJson";
+import { SelectItem } from "../../../../../components/ui/select.jsx";
+import { Button } from "../../../../../components/ui/button.jsx";
+import { getModelsApiUrl } from "../../../../config/urls.js";
+import { filterOutGeneralLive2DModelKeys } from "../../lib/live2dRemoteUtils.js";
+import { fetchJson } from "../../../../lib/fetchJson.js";
 import { useMemo, memo } from "react";
 import { Shirt, Loader2, RotateCw } from "lucide-react";
 import useSWR from "swr";
-import { SelectField, selectItemClass } from "./shared/SelectField";
+import { SelectField, selectItemClass } from "./shared/SelectField.jsx";
 
 const ModelSelect = memo(function ModelSelect({
   characterId,

@@ -1,7 +1,7 @@
-import { getLive2DBaseUrl } from "./remote";
-import { Asset2JsonConverter } from "./asset-converter";
-import { getLive2DBranch } from "@/src/config/urls";
-import { toLive2DModelDescriptor } from "@/src/features/viewer/lib/live2dRemoteUtils";
+import { getLive2DBaseUrl } from "./remote.js";
+import { Asset2JsonConverter } from "./asset-converter.js";
+import { getLive2DBranch } from "../../config/urls.js";
+import { toLive2DModelDescriptor } from "../../features/viewer/lib/live2dRemoteUtils.js";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const descriptorCache = new Map();

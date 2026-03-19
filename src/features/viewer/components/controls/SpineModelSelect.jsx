@@ -1,13 +1,11 @@
-"use client";
-
-import { SelectItem } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { getSpineModelsApiUrl } from "@/src/config/urls";
-import { fetchJson } from "@/src/lib/fetchJson";
+import { SelectItem } from "../../../../../components/ui/select.jsx";
+import { Button } from "../../../../../components/ui/button.jsx";
+import { getSpineModelsApiUrl } from "../../../../config/urls.js";
+import { fetchJson } from "../../../../lib/fetchJson.js";
 import { Loader2, Repeat2, RotateCw } from "lucide-react";
 import { memo, useMemo } from "react";
 import useSWR from "swr";
-import { SelectField, selectItemClass } from "./shared/SelectField";
+import { SelectField, selectItemClass } from "./shared/SelectField.jsx";
 
 const SpineModelSelect = memo(function SpineModelSelect({
   characterId,

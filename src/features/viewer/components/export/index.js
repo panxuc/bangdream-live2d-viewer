@@ -1,3 +1,3 @@
-export { SaveButton } from "./SaveButton";
-export { ExportSettingsSection } from "./ExportSettingsSection";
-export { BatchExportSection } from "./BatchExportSection";
+export { SaveButton } from "./SaveButton.jsx";
+export { ExportSettingsSection } from "./ExportSettingsSection.jsx";
+export { BatchExportSection } from "./BatchExportSection.jsx";

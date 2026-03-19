@@ -1,6 +1,4 @@
-"use client";
-
-import { ExpressionSelect } from "@/src/features/viewer/components/controls";
+import { ExpressionSelect } from "../controls/index.js";
 import { Shuffle } from "lucide-react";
 
 export function ExpressionSection({

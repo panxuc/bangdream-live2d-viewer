@@ -1,7 +1,5 @@
-"use client";
-
-import { CharacterSelect, ModelDownloadButton, ModelSelect } from "@/src/features/viewer/components/controls";
-import { getBestdoriAssetUrl } from "@/src/config/urls";
+import { CharacterSelect, ModelDownloadButton, ModelSelect } from "../controls/index.js";
+import { getBestdoriAssetUrl } from "../../../../config/urls.js";
 import { ExternalLink, Shirt, Skull, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 

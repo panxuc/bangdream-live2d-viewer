@@ -1,10 +1,8 @@
-"use client";
-
-import { SelectItem } from "@/components/ui/select";
+import { SelectItem } from "../../../../../components/ui/select.jsx";
 import { Clapperboard, Layers } from "lucide-react";
-import { CharacterSelect } from "./CharacterSelect";
-import { ModelSelect } from "./ModelSelect";
-import { SelectField, selectItemClass } from "./shared/SelectField";
+import { CharacterSelect } from "./CharacterSelect.jsx";
+import { ModelSelect } from "./ModelSelect.jsx";
+import { SelectField, selectItemClass } from "./shared/SelectField.jsx";
 
 export const MotionSelect = ({
   modelData,

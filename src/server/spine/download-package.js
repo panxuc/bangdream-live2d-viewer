@@ -1,6 +1,6 @@
 import JSZip from "jszip";
-import { ZIP_METADATA } from "@/src/config/urls";
-import { getSpineModelDescriptor } from "./model-descriptor-cache";
+import { ZIP_METADATA } from "../../config/urls.js";
+import { getSpineModelDescriptor } from "./model-descriptor-cache.js";
 
 const FIXED_DATE = new Date(0);
 const CACHE_TTL_MS = 10 * 60 * 1000;

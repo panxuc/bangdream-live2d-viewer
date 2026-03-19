@@ -1,9 +1,7 @@
-"use client";
-
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as PIXI from "pixi.js";
 import { Loader2, Music } from "lucide-react";
-import { getBackgroundCanvasStyle } from "@/src/features/viewer/lib/backgroundStyle";
+import { getBackgroundCanvasStyle } from "../../lib/backgroundStyle.js";
 import {
   applyViewerModelState,
   applyViewerModelTransform,
@@ -13,7 +11,7 @@ import {
   removeViewerModelInstance,
   resetViewerModel,
   shouldReloadViewerModel,
-} from "./viewerModelRuntime";
+} from "./viewerModelRuntime.js";
 
 let audioUnlockPromise = null;
 const CANVAS_SIZE = 400;
@@ -31,16 +29,6 @@ const resumeAudioContexts = async () => {
   if (audioUnlockPromise) return audioUnlockPromise;
 
   audioUnlockPromise = (async () => {
-    try {
-      const pixiSound = await import("@pixi/sound");
-      const context = pixiSound?.sound?.context?.audioContext;
-      if (context?.state === "suspended") {
-        await context.resume();
-      }
-    } catch {
-      // Ignore audio unlock failures; browser may still block until explicit gesture.
-    }
-
     try {
       const globalContext = window?.PIXI?.sound?.context?.audioContext;
       if (globalContext?.state === "suspended") {
@@ -204,6 +192,8 @@ const ViewerCanvas = forwardRef(function ViewerCanvas(
 
   useEffect(() => {
     if (typeof window === "undefined" || !canvasRef.current) return;
+
+    window.PIXI = PIXI;
 
     let cancelled = false;
     const unlockAudio = () => {

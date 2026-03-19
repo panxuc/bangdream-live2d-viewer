@@ -1,25 +1,23 @@
-import { NextResponse } from "next/server";
-import { getSpineModelDescriptor } from "./model-descriptor-cache";
+import { jsonResponse } from "../http.js";
+import { getSpineModelDescriptor } from "./model-descriptor-cache.js";
 
-export async function handleSpineAssetRequest(context) {
-  const { model, path } = await context.params;
+export async function handleSpineAssetRequest({ model, path = [] }) {
   const requestedPath = Array.isArray(path) ? decodeURIComponent(path.join("/")) : "";
-
   if (!model) {
-    return NextResponse.json({ error: "Model parameter is required" }, { status: 400 });
+    return jsonResponse({ error: "Model parameter is required" }, { status: 400 });
   }
 
   try {
     const descriptorRecord = await getSpineModelDescriptor(model);
 
     if (!requestedPath || requestedPath === "buildData.asset") {
-      return NextResponse.json(descriptorRecord.descriptor, {
+      return jsonResponse(descriptorRecord.descriptor, {
         headers: descriptorRecord.headers.json,
       });
     }
 
     if (requestedPath === descriptorRecord.atlasFileName) {
-      return new NextResponse(descriptorRecord.atlasText, {
+      return new Response(descriptorRecord.atlasText, {
         headers: descriptorRecord.headers.text,
       });
     }
@@ -29,23 +27,23 @@ export async function handleSpineAssetRequest(context) {
       descriptorRecord.pageUrlMap[requestedPath];
 
     if (!remoteUrl) {
-      return NextResponse.json({ error: "Requested Spine asset was not found" }, { status: 404 });
+      return jsonResponse({ error: "Requested Spine asset was not found" }, { status: 404 });
     }
 
     const response = await fetch(remoteUrl);
     if (!response.ok) {
-      return NextResponse.json({ error: `Failed to fetch asset: ${response.status}` }, { status: response.status });
+      return jsonResponse({ error: `Failed to fetch asset: ${response.status}` }, { status: response.status });
     }
 
     const contentType = response.headers.get("content-type") || descriptorRecord.headers.binary["content-type"];
     const body = await response.arrayBuffer();
-    return new NextResponse(body, {
+    return new Response(body, {
       headers: {
         ...descriptorRecord.headers.binary,
         "content-type": contentType,
       },
     });
   } catch (error) {
-    return NextResponse.json({ error: `Failed to fetch Spine data: ${error.message}` }, { status: 500 });
+    return jsonResponse({ error: `Failed to fetch Spine data: ${error.message}` }, { status: 500 });
   }
 }

@@ -1,6 +1,4 @@
-"use client";
-
-import { SaveButton } from "@/src/features/viewer/components/export";
+import { SaveButton } from "../export/index.js";
 import { Download } from "lucide-react";
 
 export function ViewerExportPanel({ activeModel, canvasRef, backgroundColor, setBackgroundColor, handleModelReload, setIsBatching }) {

@@ -1,5 +1,3 @@
-"use client";
-
 import { RotateCcw } from "lucide-react";
 
 export function SimpleSlider({ value, min, max, step, onChange, label, disabled, defaultValue }) {

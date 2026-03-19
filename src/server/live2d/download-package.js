@@ -1,7 +1,7 @@
 import JSZip from "jszip";
-import { EXTERNAL_URLS, ZIP_METADATA, getLive2DBranch } from "@/src/config/urls";
-import { getLive2DBaseUrl } from "./remote";
-import { getLive2DModelDescriptor } from "./model-descriptor-cache";
+import { EXTERNAL_URLS, ZIP_METADATA, getLive2DBranch } from "../../config/urls.js";
+import { getLive2DBaseUrl } from "./remote.js";
+import { getLive2DModelDescriptor } from "./model-descriptor-cache.js";
 
 const FIXED_DATE = new Date(0);
 const CACHE_TTL_MS = 10 * 60 * 1000;

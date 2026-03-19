@@ -1,7 +1,5 @@
-"use client";
-
 import { useCallback, useRef } from "react";
-import { drawBackgroundToCanvas } from "@/src/features/viewer/lib/backgroundStyle";
+import { drawBackgroundToCanvas } from "../lib/backgroundStyle.js";
 
 export function useCanvasImageExport({ canvasRef, backgroundColor, imageSize }) {
   const exportCanvasRef = useRef(null);

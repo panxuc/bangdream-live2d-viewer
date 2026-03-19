@@ -1,12 +1,12 @@
-import { getViewerModelApiBase } from "@/src/config/urls";
+import { getViewerModelApiBase } from "../../../config/urls.js";
 import {
   applyProcessedExpressions,
   applyProcessedMotions,
   toControlModelData,
   toProcessedExpressions,
   toProcessedMotionGroups,
-} from "./modelData";
-import { deepCloneValue } from "./modelState";
+} from "./modelData.js";
+import { deepCloneValue } from "./modelState.js";
 
 export async function fetchBuildDataAsset(modelId, isModified) {
   const modelBaseUrl = getViewerModelApiBase(modelId, isModified);

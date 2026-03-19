@@ -1,4 +1,4 @@
-import { getSpineModelIndexUrl } from "@/src/config/urls";
+import { getSpineModelIndexUrl } from "../../config/urls.js";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 

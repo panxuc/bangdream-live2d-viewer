@@ -1,26 +1,24 @@
-import { NextResponse } from "next/server";
-import { createLive2DAssetResponse } from "./proxy-route";
+import { jsonResponse } from "../http.js";
+import { createLive2DAssetResponse } from "./proxy-route.js";
 
-export async function handleLive2DAssetRequest(context, isModified) {
-  const { model, path } = await context.params;
-
+export async function handleLive2DAssetRequest({ model, path = [], isModified = false }) {
   if (!model) {
-    return NextResponse.json({ error: "Model parameter is required" }, { status: 400 });
+    return jsonResponse({ error: "Model parameter is required" }, { status: 400 });
   }
 
   try {
     const result = await createLive2DAssetResponse({ model, path, isModified });
 
     if (!result.ok) {
-      return NextResponse.json(result.body, { status: result.status });
+      return jsonResponse(result.body, { status: result.status });
     }
 
     if (result.isJson) {
-      return NextResponse.json(result.body, { headers: result.headers });
+      return jsonResponse(result.body, { headers: result.headers });
     }
 
-    return new NextResponse(result.body, { headers: result.headers });
+    return new Response(result.body, { headers: result.headers });
   } catch (error) {
-    return NextResponse.json({ error: `Failed to fetch data: ${error.message}` }, { status: 500 });
+    return jsonResponse({ error: `Failed to fetch data: ${error.message}` }, { status: 500 });
   }
 }

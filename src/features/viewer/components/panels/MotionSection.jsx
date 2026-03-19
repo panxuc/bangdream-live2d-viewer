@@ -1,6 +1,4 @@
-"use client";
-
-import { MotionSelect } from "@/src/features/viewer/components/controls";
+import { MotionSelect } from "../controls/index.js";
 import { Repeat, Shuffle } from "lucide-react";
 
 export function MotionSection({

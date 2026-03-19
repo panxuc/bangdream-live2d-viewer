@@ -1,4 +1,4 @@
-import { getLive2DBranch, getLive2DModelIndexUrl } from "@/src/config/urls";
+import { getLive2DBranch, getLive2DModelIndexUrl } from "../../config/urls.js";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const branchCache = new Map();

@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
-import { LayerEditorPanel } from "./LayerEditorPanel";
-import { LayerListPanel } from "./LayerListPanel";
+import { LayerEditorPanel } from "./LayerEditorPanel.jsx";
+import { LayerListPanel } from "./LayerListPanel.jsx";
 
 export function ViewerControlsPanel(props) {
   const controlsLayoutRef = useRef(null);

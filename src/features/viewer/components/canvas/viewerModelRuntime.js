@@ -1,12 +1,10 @@
-"use client";
-
 import * as PIXI from "pixi.js";
 import { TextureAtlas } from "pixi-spine";
-import { PUBLIC_ASSET_PATHS, getViewerModelApiBase, getViewerSpineApiBase } from "@/src/config/urls";
-import { toSpineControlModelData } from "@/src/features/viewer/lib/modelData";
-import { MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
-import { detectSpineBinaryVersion, normalizeSpineVersionKey } from "@/src/features/viewer/lib/spineVersion";
-import { loadPublicScript } from "@/src/lib/loadPublicScript";
+import { PUBLIC_ASSET_PATHS, getViewerModelApiBase, getViewerSpineApiBase } from "../../../../config/urls.js";
+import { toSpineControlModelData } from "../../lib/modelData.js";
+import { MODEL_TYPES } from "../../lib/modelState.js";
+import { detectSpineBinaryVersion, normalizeSpineVersionKey } from "../../lib/spineVersion.js";
+import { loadPublicScript } from "../../../../lib/loadPublicScript.js";
 
 const DEFAULT_LIVE2D_SCALE = 0.25;
 const DEFAULT_SPINE_BASE_OFFSET_Y = -40;

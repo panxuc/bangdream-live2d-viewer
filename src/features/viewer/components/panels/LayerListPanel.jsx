@@ -1,5 +1,3 @@
-"use client";
-
 import { ChevronDown, ChevronUp, Copy, GripVertical, Layers, Maximize2, Minimize2, Plus, Shirt, Shuffle, Skull, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 

@@ -1,7 +1,5 @@
-"use client";
-
-import { SimpleSlider } from "@/src/features/viewer/components/controls";
-import { getDefaultTransformForModelType, getTransformConfigForModelType } from "@/src/features/viewer/lib/modelState";
+import { SimpleSlider } from "../controls/index.js";
+import { getDefaultTransformForModelType, getTransformConfigForModelType } from "../../lib/modelState.js";
 import { Move } from "lucide-react";
 
 export function TransformSection({ activeModel, isBatching, handleTransformChange }) {
