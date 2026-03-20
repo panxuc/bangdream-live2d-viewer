@@ -1,9 +1,11 @@
-import { Button } from "../../../../../components/ui/button.jsx";
-import { SelectItem } from "../../../../../components/ui/select.jsx";
-import { MODEL_TYPES } from "../../lib/modelState.js";
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { SelectItem } from "@/components/ui/select";
+import { MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
 import { FileJson, RotateCw, Upload } from "lucide-react";
 import { useRef } from "react";
-import { SelectField, selectItemClass } from "./shared/SelectField.jsx";
+import { SelectField, selectItemClass } from "./shared/SelectField";
 
 export function LocalModelUpload({
   modelType = MODEL_TYPES.LIVE2D,

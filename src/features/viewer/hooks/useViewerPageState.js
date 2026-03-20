@@ -1,6 +1,10 @@
+"use client";
+
+import * as PIXI from "pixi.js";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useViewerLayerState } from "./useViewerLayerState.js";
-import { toControlModelData, toProcessedMotionGroups } from "../lib/modelData.js";
+import { useViewerLayerState } from "@/src/features/viewer/hooks/useViewerLayerState";
+import { buildLocalModelFromArchive, collectModelCandidates, extractArchiveEntries } from "@/src/features/viewer/lib/localModelArchive";
+import { toControlModelData, toProcessedMotionGroups } from "@/src/features/viewer/lib/modelData";
 import {
   MAX_MODELS,
   MODEL_TYPES,
@@ -12,12 +16,12 @@ import {
   getModelSourceSignature,
   parseSourceOptionKey,
   toNullableSelection,
-} from "../lib/modelState.js";
+} from "@/src/features/viewer/lib/modelState";
 import {
   buildBorrowingPatchForModel,
   buildCombinedOverridePatchForModel,
   fetchBuildDataAsset as fetchRemoteBuildDataAsset,
-} from "../lib/remoteModelService.js";
+} from "@/src/features/viewer/lib/remoteModelService";
 
 export { MAX_MODELS };
 
@@ -28,19 +32,6 @@ const nextModelRequestId = (requestMapRef, modelId) => {
 };
 
 const isCurrentModelRequest = (requestMapRef, modelId, requestId) => requestMapRef.current.get(modelId) === requestId;
-
-let localModelArchiveUtilsPromise = null;
-
-const loadLocalModelArchiveUtils = async () => {
-  if (!localModelArchiveUtilsPromise) {
-    localModelArchiveUtilsPromise = import("../lib/localModelArchive.js").catch((error) => {
-      localModelArchiveUtilsPromise = null;
-      throw error;
-    });
-  }
-
-  return localModelArchiveUtilsPromise;
-};
 
 export function useViewerPageState() {
   const {
@@ -72,6 +63,12 @@ export function useViewerPageState() {
   const localModelApplyRequestsRef = useRef(new Map());
 
   modelsRef.current = models;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.PIXI = PIXI;
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
@@ -511,7 +508,6 @@ export function useViewerPageState() {
       setIsUploadingLocalModel(true);
 
       try {
-        const { collectModelCandidates, extractArchiveEntries } = await loadLocalModelArchiveUtils();
         const archivePayload = await extractArchiveEntries(file);
         const candidates = collectModelCandidates(archivePayload, modelSnapshot.modelType);
         if (candidates.length === 0) {
@@ -605,7 +601,6 @@ export function useViewerPageState() {
       ];
 
       try {
-        const { buildLocalModelFromArchive } = await loadLocalModelArchiveUtils();
         const result = await buildLocalModelFromArchive({
           archive,
           selectedCandidateId,

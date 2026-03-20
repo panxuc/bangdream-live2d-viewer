@@ -1,12 +1,14 @@
+"use client";
+
 import { useState, useMemo, useCallback, memo, useEffect } from "react";
-import { SelectItem } from "../../../../../components/ui/select.jsx";
-import { useCharacters, useCategories } from "../../../catalog/hooks/useCatalog.js";
-import { getCharacterAvailabilityApiUrl } from "../../../../config/urls.js";
-import { hasAvailableModelForCharacter } from "../../lib/characterIdAliases.js";
-import { fetchJson } from "../../../../lib/fetchJson.js";
+import { SelectItem } from "@/components/ui/select";
+import { useCharacters, useCategories } from "@/src/features/catalog/hooks/useCatalog";
+import { getCharacterAvailabilityApiUrl } from "@/src/config/urls";
+import { hasAvailableModelForCharacter } from "@/src/features/viewer/lib/characterIdAliases";
+import { fetchJson } from "@/src/lib/fetchJson";
 import { Users } from "lucide-react";
-import { CharacterFilterPopover } from "./CharacterFilterPopover.jsx";
-import { SelectField, selectItemClass } from "./shared/SelectField.jsx";
+import { CharacterFilterPopover } from "./CharacterFilterPopover";
+import { SelectField, selectItemClass } from "./shared/SelectField";
 import useSWR from "swr";
 
 const CharacterSelect = memo(function CharacterSelect({

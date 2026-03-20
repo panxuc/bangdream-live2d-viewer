@@ -1,5 +1,5 @@
-import { getLive2DFileUrl } from "./remote.js";
-import { getLive2DModelDescriptor } from "./model-descriptor-cache.js";
+import { getLive2DFileUrl } from "./remote";
+import { getLive2DModelDescriptor } from "./model-descriptor-cache";
 
 const MTN_PARAM_IMPORT_LINE = /^\s*PARAM_IMPORT=.*(?:\r?\n)?/gim;
 

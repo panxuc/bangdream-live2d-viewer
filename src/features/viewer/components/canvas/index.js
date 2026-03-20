@@ -1,1 +1,1 @@
-export { ViewerCanvas } from "./ViewerCanvas.jsx";
+export { ViewerCanvas } from "./ViewerCanvas";

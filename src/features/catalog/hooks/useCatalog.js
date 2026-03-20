@@ -1,5 +1,5 @@
-import { categories } from "../../../server/catalog/categories.js";
-import { characters } from "../../../server/catalog/characters.js";
+import { categories } from "@/src/server/catalog/categories";
+import { characters } from "@/src/server/catalog/characters";
 
 export function useCharacters() {
   return {

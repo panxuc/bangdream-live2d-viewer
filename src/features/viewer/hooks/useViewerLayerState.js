@@ -1,5 +1,7 @@
+"use client";
+
 import { useCallback, useMemo, useReducer } from "react";
-import { createInitialViewerLayerState, viewerLayerReducer } from "../lib/viewerLayerReducer.mjs";
+import { createInitialViewerLayerState, viewerLayerReducer } from "@/src/features/viewer/lib/viewerLayerReducer.mjs";
 
 export function useViewerLayerState() {
   const [state, dispatch] = useReducer(viewerLayerReducer, undefined, createInitialViewerLayerState);

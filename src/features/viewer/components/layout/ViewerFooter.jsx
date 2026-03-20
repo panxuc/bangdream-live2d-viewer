@@ -1,4 +1,6 @@
-import { EXTERNAL_URLS } from "../../../../config/urls.js";
+"use client";
+
+import { EXTERNAL_URLS } from "@/src/config/urls";
 
 export function ViewerFooter() {
   return (

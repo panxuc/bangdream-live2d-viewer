@@ -1,5 +1,7 @@
+"use client";
+
 import { FolderOpen, Sparkles, Spline, Wifi } from "lucide-react";
-import { getSourceOptionKey, MODEL_TYPES } from "../../lib/modelState.js";
+import { getSourceOptionKey, MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
 
 const TYPE_OPTIONS = [
   {

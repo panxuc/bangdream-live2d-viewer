@@ -1,5 +1,5 @@
-import { getSpineModelIndex } from "./model-index-cache.js";
-import { EXTERNAL_URLS } from "../../config/urls.js";
+import { getSpineModelIndex } from "./model-index-cache";
+import { EXTERNAL_URLS } from "@/src/config/urls";
 import {
   buildSpineRemoteDescriptor,
   findSpineBuilddataAtlasFileName,
@@ -11,7 +11,7 @@ import {
   resolveSpineTextureBaseName,
   toBuilddataTextureBaseName,
   parseAtlasPageNames,
-} from "./remote.js";
+} from "./remote";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const descriptorCache = new Map();

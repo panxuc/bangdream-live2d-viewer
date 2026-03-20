@@ -1,4 +1,4 @@
-import { EXTERNAL_URLS, getViewerSpineApiBase } from "../../config/urls.js";
+import { EXTERNAL_URLS, getViewerSpineApiBase } from "@/src/config/urls";
 import {
   extractSpineModelIds,
   findSpineBuilddataAtlasFileName,
@@ -10,7 +10,7 @@ import {
   resolveSpineSkeletonMeta,
   resolveSpineTextureBaseName,
   toBuilddataTextureBaseName,
-} from "../../features/viewer/lib/spineRemoteUtils.js";
+} from "@/src/features/viewer/lib/spineRemoteUtils";
 
 const ensureTrailingSlash = (value) => (value.endsWith("/") ? value : `${value}/`);
 const joinUrlParts = (...parts) =>

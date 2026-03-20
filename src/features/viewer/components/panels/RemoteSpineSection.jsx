@@ -1,4 +1,6 @@
-import { CharacterSelect, ModelDownloadButton, SpineModelSelect } from "../controls/index.js";
+"use client";
+
+import { CharacterSelect, ModelDownloadButton, SpineModelSelect } from "@/src/features/viewer/components/controls";
 
 export function RemoteSpineSection({
   activeModel,

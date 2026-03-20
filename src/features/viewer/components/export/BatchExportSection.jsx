@@ -1,4 +1,6 @@
-import { Button } from "../../../../../components/ui/button.jsx";
+"use client";
+
+import { Button } from "@/components/ui/button";
 import { Camera, Image as ImageIcon, Layers, Loader2, StopCircle } from "lucide-react";
 
 export function BatchExportSection({

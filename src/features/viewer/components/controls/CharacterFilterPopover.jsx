@@ -1,7 +1,9 @@
-import { Button } from "../../../../../components/ui/button.jsx";
-import { Popover, PopoverContent, PopoverTrigger } from "../../../../../components/ui/popover.jsx";
-import { Checkbox } from "../../../../../components/ui/checkbox.jsx";
-import { RadioGroup, RadioGroupItem } from "../../../../../components/ui/radio-group.jsx";
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Filter, SlidersHorizontal } from "lucide-react";
 import { useId } from "react";
 

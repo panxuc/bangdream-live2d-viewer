@@ -1,9 +1,9 @@
-export { ViewerFooter, ViewerHeader, ViewerStage } from "./layout/index.js";
+export { ViewerFooter, ViewerHeader, ViewerStage } from "./layout";
 
-export { ViewerControlsPanel, ViewerExportPanel } from "./panels/index.js";
+export { ViewerControlsPanel, ViewerExportPanel } from "./panels";
 
-export { ViewerCanvas } from "./canvas/index.js";
+export { ViewerCanvas } from "./canvas";
 
-export { CharacterSelect, ModelSelect, MotionSelect, ExpressionSelect, SimpleSlider } from "./controls/index.js";
+export { CharacterSelect, ModelSelect, MotionSelect, ExpressionSelect, SimpleSlider } from "./controls";
 
-export { SaveButton } from "./export/index.js";
+export { SaveButton } from "./export";

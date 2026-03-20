@@ -1,4 +1,6 @@
-import { Button } from "../../../../../components/ui/button.jsx";
+"use client";
+
+import { Button } from "@/components/ui/button";
 import { saveAs } from "file-saver";
 import { Download, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -7,8 +9,8 @@ import {
   getDownloadInfoApiUrl,
   getSpineDownloadApiUrl,
   getSpineDownloadInfoApiUrl,
-} from "../../../../config/urls.js";
-import { fetchJson } from "../../../../lib/fetchJson.js";
+} from "@/src/config/urls";
+import { fetchJson } from "@/src/lib/fetchJson";
 
 const formatZipSize = (bytes) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return "ZIP";

@@ -1,4 +1,6 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../../../../components/ui/select.jsx";
+"use client";
+
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const baseTriggerClass =
   "w-full h-11 rounded-xl transition-all duration-300 border border-[#E5004F]/15 dark:border-[#ff76a7]/25";

@@ -1,9 +1,11 @@
-import { SelectItem } from "../../../../../components/ui/select.jsx";
+"use client";
+
+import { SelectItem } from "@/components/ui/select";
 import { memo } from "react";
 import { Smile } from "lucide-react";
-import { CharacterSelect } from "./CharacterSelect.jsx";
-import { ModelSelect } from "./ModelSelect.jsx";
-import { SelectField, selectItemClass } from "./shared/SelectField.jsx";
+import { CharacterSelect } from "./CharacterSelect";
+import { ModelSelect } from "./ModelSelect";
+import { SelectField, selectItemClass } from "./shared/SelectField";
 
 const ExpressionSelect = memo(function ExpressionSelect({
   modelData,
