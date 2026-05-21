@@ -2,16 +2,11 @@
 
 import {
   BookOpen,
-  CircleHelp,
-  FolderUp,
-  Github,
-  Info,
   Link,
   ListTodo,
   MessageCircle,
   Star,
   Tent,
-  Wifi,
 } from "lucide-react";
 import {
   Sheet,
@@ -24,18 +19,6 @@ import {
 
 const sections = [
   {
-    id: "info",
-    title: "关于本站",
-    icon: Info,
-    items: [
-      [{ icon: Wifi }, "基础模型来自于 ", { type: "link", label: "Bestdori", href: "https://bestdori.com/" }, " 网站的游戏解包资源，本站不定期对相关资源进行备份。"],
-      [{ icon: Wifi }, "改模模型大部分来自于社区的用户自制资源。本站仅提供展示功能。"],
-      [{ icon: FolderUp }, "本地上传功能支持用户导入自己手头的 Live2D 或 Spine 模型文件，文件不会被上传到服务器，完全在浏览器本地处理。"],
-      [{ icon: Info }, "由于 Live2D / Spine 模型的复杂性和多样性，无法保证所有模型都能完美兼容和显示效果良好。"],
-      [{ icon: CircleHelp }, "如果你有任何问题或建议，欢迎在 NGA 联系 ", { type: "link", label: "[@各務砂雪]", href: "https://bbs.nga.cn/nuke.php?func=ucp&uid=66691870" }, " 或在 ", { type: "link", label: "此帖", href: "https://bbs.nga.cn/read.php?tid=44612199" }, " 下反馈。"],
-    ],
-  },
-  {
     id: "link",
     title: "链接",
     icon: Link,
@@ -43,7 +26,7 @@ const sections = [
       [{ icon: Star }, { type: "link", label: "Bestdori", href: "https://bestdori.com/" }],
       [{ icon: MessageCircle }, { type: "link", label: "WebGAL 交流群", href: "https://t.bilibili.com/328261011?comment_on=1&comment_root_id=265078938272&share_tag=s_i&type=2#reply265078938272" }],
       [{ icon: Tent }, { type: "link", label: "邦多礼庇护所", href: "https://tools.shelter.net.cn/" }],
-      [{ icon: Github }, { type: "link", label: "KonshinHaoshin/mygoxmujica_archive", href: "https://github.com/KonshinHaoshin/mygoxmujica_archive" }],
+      [{ icon: Link }, { type: "link", label: "KonshinHaoshin/mygoxmujica_archive", href: "https://github.com/KonshinHaoshin/mygoxmujica_archive" }],
     ],
   },
   {
