@@ -29,7 +29,7 @@
     "pixi-spine": "^4.0.6",
     "pixi.js": "^7.4.3",
     "react": "^19.2.5",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.5",
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4",
