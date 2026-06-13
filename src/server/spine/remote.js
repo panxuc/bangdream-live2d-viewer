@@ -1,4 +1,4 @@
-import { EXTERNAL_URLS, getViewerSpineApiBase } from "@/src/config/urls";
+import { getViewerSpineApiBase } from "@/src/config/urls";
 import {
   extractSpineModelIds,
   findSpineBuilddataAtlasFileName,
@@ -13,17 +13,22 @@ import {
 } from "@/src/features/viewer/lib/spineRemoteUtils";
 
 const ensureTrailingSlash = (value) => (value.endsWith("/") ? value : `${value}/`);
-const joinUrlParts = (...parts) =>
+const joinR2KeyParts = (...parts) =>
   parts
     .filter(Boolean)
-    .map((part, index) => {
-      if (index === 0) return String(part).replace(/\/+$/, "");
-      return String(part).replace(/^\/+|\/+$/g, "");
-    })
+    .map((part) => String(part).replace(/^\/+|\/+$/g, ""))
     .join("/");
 
-export function getSpineBuildDataFileUrl(assetPath, modelId) {
-  return joinUrlParts(EXTERNAL_URLS.bangdreamR2Origin, ensureTrailingSlash(assetPath), getSpineBuildDataFileName(modelId));
+export function getSpineModelIndexKey() {
+  return "sdchara/_info.json";
+}
+
+export function getSpineBuildDataFileKey(assetPath, modelId) {
+  return joinR2KeyParts(ensureTrailingSlash(assetPath), getSpineBuildDataFileName(modelId));
+}
+
+export function joinSpineR2KeyParts(...parts) {
+  return joinR2KeyParts(...parts);
 }
 
 export function buildSpineRemoteDescriptor({ modelId, assetPath, buildData, atlasText, atlasFileName }) {

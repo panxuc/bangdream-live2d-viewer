@@ -1,4 +1,5 @@
-import { getSpineModelIndexUrl } from "@/src/config/urls";
+import { getSpineModelIndexKey } from "./remote";
+import { readBangDreamR2Json } from "@/src/server/r2/bangdream-r2";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
@@ -10,12 +11,7 @@ export async function getSpineModelIndex() {
     return cachedIndex;
   }
 
-  const response = await fetch(getSpineModelIndexUrl());
-  if (!response.ok) {
-    throw new Error(`Failed to fetch Spine model index: ${response.status}`);
-  }
-
-  const data = await response.json();
+  const data = await readBangDreamR2Json(getSpineModelIndexKey());
   cachedIndex = {
     data,
     fetchedAt: now,

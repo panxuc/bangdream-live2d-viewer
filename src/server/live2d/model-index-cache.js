@@ -1,4 +1,5 @@
-import { getLive2DBranch, getLive2DModelIndexUrl } from "@/src/config/urls";
+import { getLive2DBranch, getLive2DModelIndexKey } from "./remote";
+import { readBangDreamR2Json } from "@/src/server/r2/bangdream-r2";
 
 const CACHE_DURATION = 24 * 60 * 60 * 1000;
 const branchCache = new Map();
@@ -12,12 +13,7 @@ export async function getModelIndex(isModified) {
     return cached;
   }
 
-  const response = await fetch(getLive2DModelIndexUrl(isModified));
-  if (!response.ok) {
-    throw new Error(`Failed to fetch model index: ${response.status}`);
-  }
-
-  const data = await response.json();
+  const data = await readBangDreamR2Json(getLive2DModelIndexKey(isModified));
   const nextCache = { data, fetchedAt: now, branch };
   branchCache.set(branch, nextCache);
   return nextCache;

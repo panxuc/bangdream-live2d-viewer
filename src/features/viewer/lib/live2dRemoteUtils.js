@@ -15,12 +15,11 @@ export function filterLive2DModelEntriesByCharacter(modelEntries, characterId) {
     }, {});
 }
 
-export function toLive2DModelDescriptor({ modelId, isModified, buildData, modelBaseUrl }) {
+export function toLive2DModelDescriptor({ modelId, isModified, buildData }) {
   return {
     kind: "live2d",
     modelId,
     isModified: Boolean(isModified),
     buildData,
-    modelBaseUrl,
   };
 }

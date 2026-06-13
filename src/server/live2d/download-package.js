@@ -1,7 +1,8 @@
 import JSZip from "jszip";
-import { EXTERNAL_URLS, ZIP_METADATA, getLive2DBranch } from "@/src/config/urls";
-import { getLive2DBaseUrl } from "./remote";
+import { ZIP_METADATA, getLive2DBranch } from "@/src/config/urls";
+import { getLive2DBaseKey } from "./remote";
 import { getLive2DModelDescriptor } from "./model-descriptor-cache";
+import { readBangDreamR2ArrayBuffer } from "@/src/server/r2/bangdream-r2";
 
 const FIXED_DATE = new Date(0);
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -35,7 +36,13 @@ const getBundlePath = (bundleName = "") => {
   return bundleName;
 };
 
-const toAssetUrl = ({ bundleName, fileName }, type, { model, isModified }) => {
+const joinR2KeyParts = (...parts) =>
+  parts
+    .filter(Boolean)
+    .map((part) => String(part).replace(/^\/+|\/+$/g, ""))
+    .join("/");
+
+const toAssetKey = ({ bundleName, fileName }, type, { model, isModified }) => {
   const branch = getLive2DBranch(isModified, model);
   const bundlePath = getBundlePath(bundleName);
   const normalizedFileName =
@@ -48,19 +55,19 @@ const toAssetUrl = ({ bundleName, fileName }, type, { model, isModified }) => {
           : fileName;
 
   if (!bundlePath) {
-    return new URL(normalizedFileName, getLive2DBaseUrl({ isModified, model })).href;
+    return joinR2KeyParts(getLive2DBaseKey({ isModified, model }), normalizedFileName);
   }
 
   const resolvedBundlePath = bundlePath.endsWith("_rip") ? bundlePath : `${bundlePath}_rip`;
-  return `${EXTERNAL_URLS.bangdreamR2Origin}/${branch}/${resolvedBundlePath}/${normalizedFileName}`;
+  return joinR2KeyParts(branch, resolvedBundlePath, normalizedFileName);
 };
 
-const fetchBinary = async (url) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw createHttpError(response.status, `Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+const fetchBinary = async (key) => {
+  try {
+    return await readBangDreamR2ArrayBuffer(key);
+  } catch (error) {
+    throw createHttpError(error.status || 500, error.message);
   }
-  return response.arrayBuffer();
 };
 
 const addDirectoryEntry = (zip, path) => {
@@ -84,18 +91,17 @@ const toModelJson = (baseData) => ({
   })),
 });
 
-const addOptionalAsset = async (zipFolder, path, assetUrl) => {
+const addOptionalAsset = async (zipFolder, path, assetKey) => {
   try {
-    const buffer = await fetchBinary(assetUrl);
+    const buffer = await fetchBinary(assetKey);
     zipFolder.file(path, buffer, { date: FIXED_DATE });
   } catch (error) {
-    console.error(`Failed to add ${path} from ${assetUrl}`, error);
+    console.error(`Failed to add ${path} from R2 object ${assetKey}`, error);
   }
 };
 
 const buildDownloadPackage = async ({ model, isModified }) => {
   const descriptorRecord = await getLive2DModelDescriptor({ model, isModified });
-  const baseUrl = descriptorRecord.modelBaseUrl || getLive2DBaseUrl({ isModified, model });
   const baseData = descriptorRecord.rawBuildData?.Base;
   if (!baseData) {
     throw createHttpError(500, "buildData.asset is missing Base");
@@ -122,7 +128,7 @@ const buildDownloadPackage = async ({ model, isModified }) => {
       addOptionalAsset(
         modelFolder,
         modelFilePath,
-        toAssetUrl(baseData.model, "model", { model, isModified }),
+        toAssetKey(baseData.model, "model", { model, isModified }),
       ),
     );
   }
@@ -132,7 +138,7 @@ const buildDownloadPackage = async ({ model, isModified }) => {
       addOptionalAsset(
         modelFolder,
         physicsFilePath,
-        toAssetUrl(baseData.physics, "physics", { model, isModified }),
+        toAssetKey(baseData.physics, "physics", { model, isModified }),
       ),
     );
   }
@@ -143,7 +149,7 @@ const buildDownloadPackage = async ({ model, isModified }) => {
       addOptionalAsset(
         modelFolder,
         `${TEXTURES_FOLDER}/${fileName}`,
-        toAssetUrl(texture, "texture", { model, isModified }),
+        toAssetKey(texture, "texture", { model, isModified }),
       ),
     );
   });
@@ -154,7 +160,7 @@ const buildDownloadPackage = async ({ model, isModified }) => {
       addOptionalAsset(
         modelFolder,
         `${MOTIONS_FOLDER}/${fileName}`,
-        toAssetUrl(motion, "motion", { model, isModified }),
+        toAssetKey(motion, "motion", { model, isModified }),
       ),
     );
   });
@@ -164,7 +170,7 @@ const buildDownloadPackage = async ({ model, isModified }) => {
       addOptionalAsset(
         modelFolder,
         `${EXPRESSIONS_FOLDER}/${toArchiveFileName(expression.fileName)}`,
-        toAssetUrl(expression, "expression", { model, isModified }),
+        toAssetKey(expression, "expression", { model, isModified }),
       ),
     );
   });

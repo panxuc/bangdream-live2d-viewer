@@ -1,91 +1,132 @@
 # BanG Dream! Live2D / Spine Viewer
 
-一个面向 BanG Dream! 相关角色资源的在线查看与导出工具，支持加载、预览、组合和导出 Live2D / Spine 模型。项目是非官方粉丝工具，仅供学习、交流与展示使用。
+BanG Dream! Live2D / Spine Viewer is an unofficial web viewer for browsing, previewing, layering, and exporting BanG Dream! character model resources.
 
-## 功能
+This repository contains only the viewer application code. BanG Dream! characters, model assets, trademarks, and related media belong to their respective rights holders.
 
-- 在线加载 Live2D 和 Spine 模型资源
-- 支持多图层叠加、排序、复制和基础变换
-- 支持动作、表情、借用动作/表情等预览选项
-- 支持本地模型压缩包导入
-- 支持画布背景设置、图片导出和批量导出
-- 支持模型资源下载打包
+## Features
 
-## 技术栈
+- Browse remote Live2D and Spine model catalogs
+- Preview Live2D and Spine models in a PixiJS canvas
+- Compose multiple model layers with ordering, duplication, and transforms
+- Select motions and expressions, including motion/expression borrowing flows
+- Import local Live2D or Spine archives in the browser
+- Export canvas images and batch image variants
+- Generate downloadable model ZIP packages through server routes
+
+## Stack
 
 - Next.js App Router
 - React 19
-- PixiJS、pixi-live2d-display-advanced、pixi-spine
+- PixiJS, `pixi-live2d-display-advanced`, and `pixi-spine`
 - Tailwind CSS
 - OpenNext for Cloudflare Workers
+- Cloudflare R2 for private model asset storage
 - pnpm
 
-## 本地开发
+## Development
+
+Install dependencies:
 
 ```bash
 pnpm install
+```
+
+Start the Next.js development server:
+
+```bash
 pnpm dev
 ```
 
-默认开发地址为 `http://localhost:3000`。
+The local Next.js app runs at `http://localhost:3000`.
 
-## 环境变量
+Remote model API routes are backed by a Cloudflare R2 binding. Use the Cloudflare preview command when you need to exercise those routes locally:
 
-项目提供默认值，不配置环境变量也可以运行。需要替换资源来源或 ZIP 注释时，可以复制 `.env.example` 为 `.env.local` 后修改：
+```bash
+pnpm preview
+```
+
+## Configuration
+
+The app has defaults for public configuration and can run without a local `.env.local`. To override public URLs or ZIP metadata, copy the example file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-| 变量 | 用途 |
+| Variable | Description |
 | --- | --- |
-| `NEXT_PUBLIC_BANGDREAM_R2_ORIGIN` | BanG Dream! 资源 R2 源站 |
-| `NEXT_PUBLIC_BANGDREAM_SPINE_ASSET_BASE` | Spine 资源索引和资源基址 |
-| `NEXT_PUBLIC_BESTDORI_LIVE2D_ASSET_BASE` | Bestdori Live2D 资源页面基址 |
-| `NEXT_PUBLIC_ZIP_COMMENT` | 下载 ZIP 文件注释 |
+| `NEXT_PUBLIC_BESTDORI_LIVE2D_ASSET_BASE` | Base URL for Bestdori Live2D asset pages |
+| `NEXT_PUBLIC_ZIP_COMMENT` | Comment embedded in generated ZIP files |
 
-帮助页链接、Bestdori 首页/支持页和 7z wasm 兜底 CDN 是代码内固定链接，不作为部署环境变量配置。
+## Cloudflare Workers Deployment
 
-## Cloudflare Workers 部署
+This is a full-stack Next.js application with `app/api/*` route handlers. It should be deployed as a Cloudflare Worker through OpenNext, not as a static Cloudflare Pages site.
 
-这个项目包含 `app/api/*` Route Handlers，不是纯静态站点。部署到 Cloudflare 时使用 OpenNext Cloudflare adapter 构建 Workers。
-
-本地预览生产构建：
+Build the Worker bundle:
 
 ```bash
 pnpm build:cloudflare
+```
+
+Preview the production Worker locally:
+
+```bash
 pnpm wrangler dev
 ```
 
-部署前先登录 Cloudflare：
+Deploy:
 
 ```bash
-pnpm wrangler login
 pnpm deploy
 ```
 
-如果使用 Cloudflare Workers 的 Git 集成，构建设置可以使用：
+For Cloudflare Workers Git builds, use:
 
 - Build command: `pnpm build:cloudflare`
 - Deploy command: `pnpm opennextjs-cloudflare deploy`
 - Wrangler config: `wrangler.jsonc`
 
-当前配置只需要 Workers Assets 绑定，不需要额外创建 R2、KV 或 D1。项目没有使用 `next/image` 和 ISR；如果以后增加图片优化或增量缓存，再按 OpenNext 文档补 Cloudflare Images 或 R2 绑定。
+## R2 Asset Access
 
-## 脚本
+Remote BanG Dream! model assets are read through the `BANGDREAM_R2` binding:
 
-| 命令 | 说明 |
+```jsonc
+"r2_buckets": [
+  {
+    "binding": "BANGDREAM_R2",
+    "bucket_name": "bangdream",
+    "remote": true
+  }
+]
+```
+
+The bucket is expected to contain objects with keys matching the existing resource path layout, for example:
+
+```text
+live2d/_info.json
+live2d/chara/001_2018_dog_rip/buildData.asset
+sdchara/_info.json
+```
+
+The application reads those objects directly by R2 key. A public R2 custom domain is not required for the viewer to work, and the bucket can remain private as long as the Worker has the `BANGDREAM_R2` binding.
+
+If the Worker is public, its API routes are public too. Private R2 access prevents direct bucket hotlinking; it does not by itself restrict access to `/api/chara/*`, `/api/spine/*`, or download routes. Add Cloudflare Access, authentication, signed requests, or rate limiting if the deployed viewer should be restricted.
+
+## Scripts
+
+| Command | Description |
 | --- | --- |
-| `pnpm dev` | 启动 Next.js 开发服务器 |
-| `pnpm build` | 构建 Next.js 应用 |
-| `pnpm build:cloudflare` | 构建 OpenNext Cloudflare Worker |
-| `pnpm preview` | 构建并用 Wrangler 本地预览 |
-| `pnpm deploy` | 构建并部署到 Cloudflare Workers |
-| `pnpm lint` | 运行项目 lint |
-| `pnpm check` | 运行基础检查 |
+| `pnpm dev` | Start the Next.js development server |
+| `pnpm build` | Build the Next.js application |
+| `pnpm build:cloudflare` | Build the OpenNext Cloudflare Worker |
+| `pnpm preview` | Build and preview the Worker with Wrangler |
+| `pnpm deploy` | Build and deploy to Cloudflare Workers |
+| `pnpm lint` | Run the project lint script |
+| `pnpm check` | Run the default project checks |
 
-## 授权
+## License
 
-本项目代码使用 MIT License，见 `LICENSE`。
+The application code is released under the MIT License. See `LICENSE`.
 
-BanG Dream! 相关角色、素材、商标以及第三方资源的权利归其各自权利人所有。本项目不授予这些素材或商标的任何使用许可，请勿用于商业用途。
+This license does not apply to BanG Dream! characters, model assets, trademarks, or other third-party resources displayed or referenced by the application. Do not use those materials commercially unless you have the appropriate rights.

@@ -1,18 +1,10 @@
 const withFallback = (value, fallback) => value || fallback;
 const withoutTrailingSlash = (value) => String(value).replace(/\/+$/, "");
 
-const bangdreamR2Origin = withoutTrailingSlash(
-  withFallback(process.env.NEXT_PUBLIC_BANGDREAM_R2_ORIGIN, "https://bangdreamr2.haneoka.org"),
-);
-
 export const EXTERNAL_URLS = {
-  bangdreamR2Origin,
   bestdoriSupport: "https://bestdori.com/home/support",
   bestdoriLive2DAssetBase: withoutTrailingSlash(
     withFallback(process.env.NEXT_PUBLIC_BESTDORI_LIVE2D_ASSET_BASE, "https://bestdori.com/tool/live2d/asset"),
-  ),
-  bangdreamSpineAssetBase: withoutTrailingSlash(
-    withFallback(process.env.NEXT_PUBLIC_BANGDREAM_SPINE_ASSET_BASE, `${bangdreamR2Origin}/sdchara`),
   ),
   sevenZipWasmCdn: "https://cdn.jsdelivr.net/npm/7z-wasm@1.2.0/7zz.wasm",
 };
@@ -54,18 +46,6 @@ export function getLive2DBranch(isModified, model = null) {
     return "live2d";
   }
   return isModified ? "live2d-modified" : "live2d";
-}
-
-export function getLive2DBaseUrl({ isModified, model }) {
-  return `${EXTERNAL_URLS.bangdreamR2Origin}/${getLive2DBranch(isModified, model)}/chara/${model}_rip/`;
-}
-
-export function getLive2DModelIndexUrl(isModified) {
-  return `${EXTERNAL_URLS.bangdreamR2Origin}/${getLive2DBranch(isModified)}/_info.json`;
-}
-
-export function getSpineModelIndexUrl() {
-  return `${EXTERNAL_URLS.bangdreamSpineAssetBase}/_info.json`;
 }
 
 export function getViewerModelApiBase(modelId, isModified) {

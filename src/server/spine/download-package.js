@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { ZIP_METADATA } from "@/src/config/urls";
 import { getSpineModelDescriptor } from "./model-descriptor-cache";
+import { readBangDreamR2ArrayBuffer } from "@/src/server/r2/bangdream-r2";
 
 const FIXED_DATE = new Date(0);
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -46,13 +47,12 @@ const rewriteAtlasPageNames = (atlasText, renameMap) => {
     .join("\n");
 };
 
-const fetchBinary = async (url) => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw createHttpError(response.status, `Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+const fetchBinary = async (key) => {
+  try {
+    return await readBangDreamR2ArrayBuffer(key);
+  } catch (error) {
+    throw createHttpError(error.status || 500, error.message);
   }
-
-  return response.arrayBuffer();
 };
 
 const buildSpineDownloadPackage = async ({ model }) => {
@@ -63,7 +63,7 @@ const buildSpineDownloadPackage = async ({ model }) => {
     throw createHttpError(500, "Failed to initialize ZIP structure");
   }
 
-  const pageEntries = Object.entries(descriptorRecord.pageUrlMap || {});
+  const pageEntries = Object.entries(descriptorRecord.pageKeyMap || {});
   const pageRenameMap = new Map();
 
   pageEntries.forEach(([pageName], index) => {
@@ -77,15 +77,15 @@ const buildSpineDownloadPackage = async ({ model }) => {
   const skeletonFileName = `${model}${skeletonExtension}`;
 
   const downloadTasks = [
-    fetchBinary(descriptorRecord.skeletonRemoteUrl).then((buffer) => {
+    fetchBinary(descriptorRecord.skeletonKey).then((buffer) => {
       modelFolder.file(skeletonFileName, buffer, { date: FIXED_DATE });
     }),
   ];
 
-  pageEntries.forEach(([pageName, pageUrl]) => {
+  pageEntries.forEach(([pageName, pageKey]) => {
     const renamedPage = pageRenameMap.get(pageName) || pageName;
     downloadTasks.push(
-      fetchBinary(pageUrl).then((buffer) => {
+      fetchBinary(pageKey).then((buffer) => {
         modelFolder.file(renamedPage, buffer, { date: FIXED_DATE });
       }),
     );

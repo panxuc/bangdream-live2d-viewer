@@ -1,5 +1,6 @@
-import { getLive2DFileUrl } from "./remote";
+import { getLive2DFileKey } from "./remote";
 import { getLive2DModelDescriptor } from "./model-descriptor-cache";
+import { fetchBangDreamR2Object } from "@/src/server/r2/bangdream-r2";
 
 const MTN_PARAM_IMPORT_LINE = /^\s*PARAM_IMPORT=.*(?:\r?\n)?/gim;
 
@@ -18,8 +19,8 @@ export async function createLive2DAssetResponse({ model, path = [], isModified =
     };
   }
 
-  const fullUrl = getLive2DFileUrl({ isModified, model, filePath });
-  const response = await fetch(fullUrl);
+  const objectKey = getLive2DFileKey({ isModified, model, filePath });
+  const response = await fetchBangDreamR2Object(objectKey);
 
   if (!response.ok) {
     return {

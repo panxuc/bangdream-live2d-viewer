@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSpineModelDescriptor } from "./model-descriptor-cache";
+import { fetchBangDreamR2Object } from "@/src/server/r2/bangdream-r2";
 
 export async function handleSpineAssetRequest(context) {
   const { model, path } = await context.params;
@@ -24,15 +25,15 @@ export async function handleSpineAssetRequest(context) {
       });
     }
 
-    const remoteUrl =
-      (requestedPath === descriptorRecord.skeletonFileName ? descriptorRecord.skeletonRemoteUrl : null) ||
-      descriptorRecord.pageUrlMap[requestedPath];
+    const objectKey =
+      (requestedPath === descriptorRecord.skeletonFileName ? descriptorRecord.skeletonKey : null) ||
+      descriptorRecord.pageKeyMap[requestedPath];
 
-    if (!remoteUrl) {
+    if (!objectKey) {
       return NextResponse.json({ error: "Requested Spine asset was not found" }, { status: 404 });
     }
 
-    const response = await fetch(remoteUrl);
+    const response = await fetchBangDreamR2Object(objectKey);
     if (!response.ok) {
       return NextResponse.json({ error: `Failed to fetch asset: ${response.status}` }, { status: response.status });
     }
