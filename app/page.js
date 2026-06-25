@@ -7,6 +7,7 @@ import { MAX_MODELS, useViewerPageState } from "@/src/features/viewer/hooks/useV
 export default function Home() {
   const state = useViewerPageState();
   const [mobilePanel, setMobilePanel] = useState("controls");
+
   const stageProps = {
     models: state.models,
     canvasRef: state.canvasRef,
@@ -77,10 +78,12 @@ export default function Home() {
       <ViewerHeader isDarkMode={state.isDarkMode} onToggleDarkMode={() => state.setIsDarkMode((prev) => !prev)} />
 
       <main className="relative z-10 w-full px-4 py-6 md:px-6 md:py-8 min-[800px]:px-8">
-        <div className="viewer-layout-mobile space-y-4 w-full max-w-[56rem] mx-auto">
-          <ViewerStage {...stageProps} />
+        <div className="viewer-shell">
+          <div className="viewer-stage-slot">
+            <ViewerStage {...stageProps} />
+          </div>
 
-          <div className="panel-glass p-1 flex items-center gap-1">
+          <div className="viewer-mobile-tabs panel-glass p-1 flex items-center gap-1">
             <button
               onClick={() => setMobilePanel("controls")}
               className={`flex-1 h-9 rounded-lg text-sm font-medium transition-colors ${
@@ -103,34 +106,11 @@ export default function Home() {
             </button>
           </div>
 
-          {mobilePanel === "controls" ? (
-            <ViewerControlsPanel {...controlsPanelProps} />
-          ) : (
-            <ViewerExportPanel {...exportPanelProps} />
-          )}
-        </div>
-
-        <div className="viewer-layout-stacked grid-cols-[minmax(16rem,19rem)_minmax(0,1fr)] gap-2 items-start w-full max-w-[min(100%,96rem)] mx-auto">
-          <div className="min-w-0">
+          <div className={`viewer-controls-slot ${mobilePanel === "controls" ? "" : "viewer-mobile-hidden"}`}>
             <ViewerControlsPanel {...controlsPanelProps} />
           </div>
 
-          <div className="min-w-0 w-full max-w-[42rem] justify-self-center space-y-2">
-            <ViewerStage {...stageProps} />
-            <ViewerExportPanel {...exportPanelProps} />
-          </div>
-        </div>
-
-        <div className="viewer-layout-wide gap-2 items-start w-full max-w-[min(100%,112rem)] mx-auto">
-          <div className="min-w-[18rem] max-w-[30rem] flex-[1.05_1_23rem]">
-            <ViewerControlsPanel {...controlsPanelProps} />
-          </div>
-
-          <div className="min-w-[18rem] flex-[1.3_1_31rem]">
-            <ViewerStage {...stageProps} />
-          </div>
-
-          <div className="min-w-[18rem] max-w-[28rem] flex-[0.95_1_21rem]">
+          <div className={`viewer-export-slot ${mobilePanel === "export" ? "" : "viewer-mobile-hidden"}`}>
             <ViewerExportPanel {...exportPanelProps} />
           </div>
         </div>

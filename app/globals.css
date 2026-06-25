@@ -133,12 +133,40 @@
 }
 
 @layer utilities {
-  .viewer-layout-mobile {
-    display: block;
+  .viewer-shell {
+    display: grid;
+    grid-template-areas:
+      "stage"
+      "tabs"
+      "controls"
+      "export";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    width: 100%;
+    max-width: 56rem;
+    margin-inline: auto;
   }
 
-  .viewer-layout-stacked,
-  .viewer-layout-wide {
+  .viewer-stage-slot {
+    grid-area: stage;
+    min-width: 0;
+  }
+
+  .viewer-mobile-tabs {
+    grid-area: tabs;
+  }
+
+  .viewer-controls-slot {
+    grid-area: controls;
+    min-width: 0;
+  }
+
+  .viewer-export-slot {
+    grid-area: export;
+    min-width: 0;
+  }
+
+  .viewer-mobile-hidden {
     display: none;
   }
 
@@ -181,22 +209,40 @@
 }
 
 @media (min-width: 640px) {
-  .viewer-layout-mobile {
+  .viewer-shell {
+    grid-template-areas:
+      "controls stage"
+      "controls export";
+    grid-template-columns: minmax(16rem, 19rem) minmax(0, 1fr);
+    gap: 0.5rem;
+    align-items: start;
+    max-width: min(100%, 96rem);
+  }
+
+  .viewer-stage-slot {
+    width: 100%;
+    max-width: 42rem;
+    justify-self: center;
+  }
+
+  .viewer-mobile-tabs {
     display: none;
   }
 
-  .viewer-layout-stacked {
-    display: grid;
+  .viewer-mobile-hidden {
+    display: block;
   }
 }
 
 @media (min-width: 800px) {
-  .viewer-layout-stacked {
-    display: none;
+  .viewer-shell {
+    grid-template-areas: "controls stage export";
+    grid-template-columns: minmax(18rem, 1.05fr) minmax(18rem, 1.3fr) minmax(18rem, 0.95fr);
+    max-width: min(100%, 112rem);
   }
 
-  .viewer-layout-wide {
-    display: flex;
+  .viewer-controls-slot {
+    max-width: 30rem;
   }
 
   .viewer-export-panel {
