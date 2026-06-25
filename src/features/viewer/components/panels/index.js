@@ -4,6 +4,7 @@ export { LayerListPanel } from "./LayerListPanel";
 export { LayerEditorPanel } from "./LayerEditorPanel";
 export { ModelSourceSection } from "./ModelSourceSection";
 export { RemoteModelSection } from "./RemoteModelSection";
+export { RemoteOnModelSection } from "./RemoteOnModelSection";
 export { RemoteSpineSection } from "./RemoteSpineSection";
 export { MotionSection } from "./MotionSection";
 export { ExpressionSection } from "./ExpressionSection";

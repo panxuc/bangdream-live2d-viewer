@@ -1,11 +1,13 @@
 "use client";
 
 import { LocalModelUpload } from "@/src/features/viewer/components/controls";
+import { MODEL_PROVIDERS } from "@/src/features/viewer/lib/modelState";
 import { Settings, Trash2 } from "lucide-react";
 import { ExpressionSection } from "./ExpressionSection";
 import { ModelSourceSection } from "./ModelSourceSection";
 import { MotionSection } from "./MotionSection";
 import { RemoteModelSection } from "./RemoteModelSection";
+import { RemoteOnModelSection } from "./RemoteOnModelSection";
 import { RemoteSpineSection } from "./RemoteSpineSection";
 import { TransformSection } from "./TransformSection";
 
@@ -23,6 +25,9 @@ export function LayerEditorPanel({
   handleSpineCharacterSelect,
   handleModelSelect,
   handleSpineModelSelect,
+  handleModelProviderChange,
+  handleOnCharacterSelect,
+  handleOnModelSelect,
   handleModelSourceChange,
   handleModelReload,
   handleBodylessChange,
@@ -43,6 +48,9 @@ export function LayerEditorPanel({
   handleLocalModelPathSelect,
   handleApplyLocalModel,
 }) {
+  const isOnProvider = activeModel.modelProvider === MODEL_PROVIDERS.ON;
+  const hasTransformableModel = activeModel.modelSource === "local" ? !!activeModel.localModelData : !!activeModel.modelId;
+
   return (
     <div className="panel-glass p-5 md:p-6 relative overflow-hidden">
       <div className="flex items-center justify-between mb-6 pb-4 border-b border-black/5 dark:border-white/10">
@@ -64,13 +72,24 @@ export function LayerEditorPanel({
 
       <div className="space-y-5">
         <ModelSourceSection
+          modelProvider={activeModel.modelProvider}
           modelType={activeModel.modelType}
           modelSource={activeModel.modelSource}
           isBatching={isBatching}
+          handleModelProviderChange={handleModelProviderChange}
           handleModelSourceChange={handleModelSourceChange}
         />
 
-        {activeModel.modelSource === "remote" && activeModel.modelType === "live2d" ? (
+        {isOnProvider ? (
+          <RemoteOnModelSection
+            activeModel={activeModel}
+            isBatching={isBatching}
+            isReloading={isReloading}
+            handleOnCharacterSelect={handleOnCharacterSelect}
+            handleOnModelSelect={handleOnModelSelect}
+            handleModelReload={handleModelReload}
+          />
+        ) : activeModel.modelSource === "remote" && activeModel.modelType === "live2d" ? (
           <RemoteModelSection
             activeModel={activeModel}
             isBatching={isBatching}
@@ -112,7 +131,7 @@ export function LayerEditorPanel({
         <MotionSection
           activeModel={activeModel}
           isBatching={isBatching}
-          supportsBorrowing={activeModel.modelType === "live2d"}
+          supportsBorrowing={activeModel.modelType === "live2d" && !isOnProvider}
           handleBorrowingToggle={handleBorrowingToggle}
           handleMotionSelect={handleMotionSelect}
           handleMotionLoopChange={handleMotionLoopChange}
@@ -125,6 +144,7 @@ export function LayerEditorPanel({
           <ExpressionSection
             activeModel={activeModel}
             isBatching={isBatching}
+            supportsBorrowing={!isOnProvider}
             handleExpressionBorrowingToggle={handleExpressionBorrowingToggle}
             handleExpressionOverride={handleExpressionOverride}
             handleExpressionSourceCharChange={handleExpressionSourceCharChange}
@@ -132,7 +152,7 @@ export function LayerEditorPanel({
           />
         ) : null}
 
-        {(activeModel.modelSource === "local" ? !!activeModel.localModelData : !!activeModel.modelId) ? (
+        {hasTransformableModel ? (
           <TransformSection
             activeModel={activeModel}
             isBatching={isBatching}

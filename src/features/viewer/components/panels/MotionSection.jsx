@@ -54,7 +54,7 @@ export function MotionSection({
         value={activeModel.motion}
         disabled={isBatching}
         onMotionOverride={handleMotionOverride}
-        isBorrowing={activeModel.isBorrowingMotion}
+        isBorrowing={supportsBorrowing && activeModel.isBorrowingMotion}
         borrowedCharId={activeModel.borrowedCharId}
         borrowedModelId={activeModel.borrowedModelId}
         onSourceCharChange={handleSourceCharChange}

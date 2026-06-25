@@ -28,6 +28,8 @@ export const API_ROUTES = {
   spineDownloadInfo: "/api/spine-download-info",
   chara: "/api/chara",
   charaModified: "/api/charam",
+  charaOn: "/api/charaon",
+  charaOnModels: "/api/charaon/models",
   spine: "/api/spine",
 };
 
@@ -48,9 +50,10 @@ export function getLive2DBranch(isModified, model = null) {
   return isModified ? "live2d-modified" : "live2d";
 }
 
-export function getViewerModelApiBase(modelId, isModified) {
-  const apiPrefix = isModified ? API_ROUTES.charaModified : API_ROUTES.chara;
-  return `${apiPrefix}/${modelId}/`;
+export function getViewerModelApiBase(modelId, isModified, modelProvider = "gbp") {
+  const apiPrefix =
+    modelProvider === "on" ? API_ROUTES.charaOn : isModified ? API_ROUTES.charaModified : API_ROUTES.chara;
+  return `${apiPrefix}/${encodeURIComponent(modelId)}/`;
 }
 
 export function getViewerSpineApiBase(modelId) {
@@ -75,6 +78,12 @@ export function getSpineModelsApiUrl(characterId) {
 
   const query = params.toString();
   return query ? `${API_ROUTES.spineModels}?${query}` : API_ROUTES.spineModels;
+}
+
+export function getOnModelsApiUrl(characterId) {
+  const params = new URLSearchParams({ characterId });
+  params.set("rulesVersion", MODEL_LIST_RULES_VERSION);
+  return `${API_ROUTES.charaOnModels}?${params.toString()}`;
 }
 
 export function getCharacterAvailabilityApiUrl(modelType, isModified = false) {

@@ -8,8 +8,8 @@ import {
 } from "./modelData";
 import { deepCloneValue } from "./modelState";
 
-export async function fetchBuildDataAsset(modelId, isModified) {
-  const modelBaseUrl = getViewerModelApiBase(modelId, isModified);
+export async function fetchBuildDataAsset(modelId, isModified, modelProvider = "gbp") {
+  const modelBaseUrl = getViewerModelApiBase(modelId, isModified, modelProvider);
   const buildDataUrl = `${modelBaseUrl}buildData.asset`;
   const response = await fetch(buildDataUrl);
 
@@ -37,7 +37,7 @@ export async function resolveTargetModelData(targetModel, fetchBuildData) {
     };
   }
 
-  const remoteData = await fetchBuildData(targetModel.modelId, targetModel.isModified);
+  const remoteData = await fetchBuildData(targetModel.modelId, targetModel.isModified, targetModel.modelProvider);
   return {
     json: remoteData.json,
     baseUrl: remoteData.baseUrl,

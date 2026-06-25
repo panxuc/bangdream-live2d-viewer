@@ -1,5 +1,7 @@
 export { CharacterSelect } from "./CharacterSelect";
 export { ModelSelect } from "./ModelSelect";
+export { OnCharacterSelect } from "./OnCharacterSelect";
+export { OnModelSelect } from "./OnModelSelect";
 export { SpineModelSelect } from "./SpineModelSelect";
 export { MotionSelect } from "./MotionSelect";
 export { ExpressionSelect } from "./ExpressionSelect";

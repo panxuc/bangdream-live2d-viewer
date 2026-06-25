@@ -7,10 +7,12 @@ import { buildLocalModelFromArchive, collectModelCandidates, extractArchiveEntri
 import { toControlModelData, toProcessedMotionGroups } from "@/src/features/viewer/lib/modelData";
 import {
   MAX_MODELS,
+  MODEL_PROVIDERS,
   MODEL_TYPES,
   RESET_ON_CHARACTER_CHANGE,
   RESET_ON_MODEL_CHANGE,
   createResetOnSourceChange,
+  createResetOnProviderChange,
   createModel,
   deepCloneValue,
   getModelSourceSignature,
@@ -89,7 +91,10 @@ export function useViewerPageState() {
 
   const getModelById = useCallback((modelId) => modelsRef.current.find((model) => model.id === modelId) || null, []);
   const updateActiveModel = useCallback((updates) => updateModelById(activeModelId, updates), [activeModelId, updateModelById]);
-  const fetchBuildDataAsset = useCallback((modelId, isModified) => fetchRemoteBuildDataAsset(modelId, isModified), []);
+  const fetchBuildDataAsset = useCallback(
+    (modelId, isModified, modelProvider) => fetchRemoteBuildDataAsset(modelId, isModified, modelProvider),
+    [],
+  );
 
   const handleAddModel = useCallback(() => {
     if (models.length >= MAX_MODELS) return;
@@ -158,6 +163,7 @@ export function useViewerPageState() {
   const handleCharacterSelect = useCallback(
     (value) => {
       updateActiveModel({
+        modelProvider: MODEL_PROVIDERS.GBP,
         modelType: MODEL_TYPES.LIVE2D,
         modelSource: "remote",
         characterId: toNullableSelection(value),
@@ -170,6 +176,7 @@ export function useViewerPageState() {
   const handleSpineCharacterSelect = useCallback(
     (value) => {
       updateActiveModel({
+        modelProvider: MODEL_PROVIDERS.GBP,
         modelType: MODEL_TYPES.SPINE,
         modelSource: "remote",
         characterId: toNullableSelection(value),
@@ -182,6 +189,7 @@ export function useViewerPageState() {
   const handleModelSelect = useCallback(
     (value) => {
       updateActiveModel({
+        modelProvider: MODEL_PROVIDERS.GBP,
         modelType: MODEL_TYPES.LIVE2D,
         modelSource: "remote",
         modelId: toNullableSelection(value),
@@ -194,6 +202,7 @@ export function useViewerPageState() {
   const handleSpineModelSelect = useCallback(
     (value) => {
       updateActiveModel({
+        modelProvider: MODEL_PROVIDERS.GBP,
         modelType: MODEL_TYPES.SPINE,
         modelSource: "remote",
         modelId: toNullableSelection(value),
@@ -216,6 +225,48 @@ export function useViewerPageState() {
       });
     },
     [activeModelId, updateActiveModel],
+  );
+
+  const handleModelProviderChange = useCallback(
+    (modelProvider) => {
+      if (modelProvider !== MODEL_PROVIDERS.GBP && modelProvider !== MODEL_PROVIDERS.ON) return;
+
+      localArchivesRef.current.delete(activeModelId);
+      updateActiveModel(createResetOnProviderChange(modelProvider));
+    },
+    [activeModelId, updateActiveModel],
+  );
+
+  const handleOnCharacterSelect = useCallback(
+    (value) => {
+      updateActiveModel({
+        modelProvider: MODEL_PROVIDERS.ON,
+        modelType: MODEL_TYPES.LIVE2D,
+        modelSource: "remote",
+        characterId: toNullableSelection(value),
+        isModified: false,
+        isHeadless: false,
+        isBodyless: false,
+        ...RESET_ON_CHARACTER_CHANGE,
+      });
+    },
+    [updateActiveModel],
+  );
+
+  const handleOnModelSelect = useCallback(
+    (value) => {
+      updateActiveModel({
+        modelProvider: MODEL_PROVIDERS.ON,
+        modelType: MODEL_TYPES.LIVE2D,
+        modelSource: "remote",
+        isModified: false,
+        isHeadless: false,
+        isBodyless: false,
+        modelId: toNullableSelection(value),
+        ...RESET_ON_MODEL_CHANGE,
+      });
+    },
+    [updateActiveModel],
   );
 
   const handleModelLoad = useCallback(
@@ -253,7 +304,13 @@ export function useViewerPageState() {
     async (sourceCharId, sourceModelId) => {
       const targetModelId = activeModelId;
       const modelSnapshot = getModelById(targetModelId);
-      if (!modelSnapshot || modelSnapshot.modelType !== MODEL_TYPES.LIVE2D) return;
+      if (
+        !modelSnapshot ||
+        modelSnapshot.modelType !== MODEL_TYPES.LIVE2D ||
+        modelSnapshot.modelProvider !== MODEL_PROVIDERS.GBP
+      ) {
+        return;
+      }
 
       const requestId = nextModelRequestId(overrideRequestsRef, targetModelId);
       const sourceSignature = getModelSourceSignature(modelSnapshot);
@@ -291,13 +348,19 @@ export function useViewerPageState() {
   );
 
   const handleBorrowingToggle = useCallback(() => {
-    if (activeModel.modelType !== MODEL_TYPES.LIVE2D) return;
+    if (activeModel.modelType !== MODEL_TYPES.LIVE2D || activeModel.modelProvider !== MODEL_PROVIDERS.GBP) return;
     const nextState = !activeModel.isBorrowingMotion;
     updateActiveModel({ isBorrowingMotion: nextState });
     if (!nextState) {
       void handleMotionOverride(null, null);
     }
-  }, [activeModel.isBorrowingMotion, activeModel.modelType, updateActiveModel, handleMotionOverride]);
+  }, [
+    activeModel.isBorrowingMotion,
+    activeModel.modelProvider,
+    activeModel.modelType,
+    updateActiveModel,
+    handleMotionOverride,
+  ]);
 
   const handleSourceCharChange = useCallback(
     (charId) => {
@@ -320,7 +383,13 @@ export function useViewerPageState() {
     async (sourceCharId, sourceModelId) => {
       const targetModelId = activeModelId;
       const modelSnapshot = getModelById(targetModelId);
-      if (!modelSnapshot || modelSnapshot.modelType !== MODEL_TYPES.LIVE2D) return;
+      if (
+        !modelSnapshot ||
+        modelSnapshot.modelType !== MODEL_TYPES.LIVE2D ||
+        modelSnapshot.modelProvider !== MODEL_PROVIDERS.GBP
+      ) {
+        return;
+      }
 
       const requestId = nextModelRequestId(overrideRequestsRef, targetModelId);
       const sourceSignature = getModelSourceSignature(modelSnapshot);
@@ -358,13 +427,19 @@ export function useViewerPageState() {
   );
 
   const handleExpressionBorrowingToggle = useCallback(() => {
-    if (activeModel.modelType !== MODEL_TYPES.LIVE2D) return;
+    if (activeModel.modelType !== MODEL_TYPES.LIVE2D || activeModel.modelProvider !== MODEL_PROVIDERS.GBP) return;
     const nextState = !activeModel.isBorrowingExpression;
     updateActiveModel({ isBorrowingExpression: nextState });
     if (!nextState) {
       void handleExpressionOverride(null, null);
     }
-  }, [activeModel.isBorrowingExpression, activeModel.modelType, updateActiveModel, handleExpressionOverride]);
+  }, [
+    activeModel.isBorrowingExpression,
+    activeModel.modelProvider,
+    activeModel.modelType,
+    updateActiveModel,
+    handleExpressionOverride,
+  ]);
 
   const handleExpressionSourceCharChange = useCallback(
     (charId) => {
@@ -384,7 +459,7 @@ export function useViewerPageState() {
   );
 
   const handleApplyBorrowingToAllLayers = useCallback(async () => {
-    if (activeModel.modelType !== MODEL_TYPES.LIVE2D) return;
+    if (activeModel.modelType !== MODEL_TYPES.LIVE2D || activeModel.modelProvider !== MODEL_PROVIDERS.GBP) return;
     const sourceCharId = activeModel.borrowedCharId;
     const sourceModelId = activeModel.borrowedModelId;
     if (!sourceCharId || !sourceModelId) return;
@@ -395,7 +470,7 @@ export function useViewerPageState() {
 
       const updates = await Promise.all(
         modelsRef.current.map(async (model) => {
-          if (model.modelType !== MODEL_TYPES.LIVE2D) return null;
+          if (model.modelType !== MODEL_TYPES.LIVE2D || model.modelProvider !== MODEL_PROVIDERS.GBP) return null;
           const patch = await buildBorrowingPatchForModel({
             targetModel: model,
             sourceCharId,
@@ -414,7 +489,14 @@ export function useViewerPageState() {
     } catch (error) {
       console.error("Apply borrowing to all layers failed:", error);
     }
-  }, [activeModel.borrowedCharId, activeModel.borrowedModelId, fetchBuildDataAsset, mapModels]);
+  }, [
+    activeModel.borrowedCharId,
+    activeModel.borrowedModelId,
+    activeModel.modelProvider,
+    activeModel.modelType,
+    fetchBuildDataAsset,
+    mapModels,
+  ]);
 
   const handleExpressionSelect = useCallback(
     (value) => {
@@ -467,6 +549,7 @@ export function useViewerPageState() {
   const handleModifiedChange = useCallback(
     (checked) => {
       updateActiveModel({
+        modelProvider: MODEL_PROVIDERS.GBP,
         modelType: MODEL_TYPES.LIVE2D,
         modelSource: "remote",
         isModified: checked,
@@ -667,6 +750,9 @@ export function useViewerPageState() {
     handleModelSelect,
     handleSpineModelSelect,
     handleModelSourceChange,
+    handleModelProviderChange,
+    handleOnCharacterSelect,
+    handleOnModelSelect,
     handleModelLoad,
     handleModelError,
     handleMotionSelect,

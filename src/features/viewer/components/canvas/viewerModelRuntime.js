@@ -4,11 +4,12 @@ import * as PIXI from "pixi.js";
 import { TextureAtlas } from "pixi-spine";
 import { PUBLIC_ASSET_PATHS, getViewerModelApiBase, getViewerSpineApiBase } from "@/src/config/urls";
 import { toSpineControlModelData } from "@/src/features/viewer/lib/modelData";
-import { MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
+import { MODEL_PROVIDERS, MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
 import { detectSpineBinaryVersion, normalizeSpineVersionKey } from "@/src/features/viewer/lib/spineVersion";
 import { loadPublicScript } from "@/src/lib/loadPublicScript";
 
 const DEFAULT_LIVE2D_SCALE = 0.25;
+const LIVE2D_ON_FIT_PADDING = 0.9;
 const DEFAULT_SPINE_BASE_OFFSET_Y = -40;
 const MODEL_MASK_TEXTURE = PUBLIC_ASSET_PATHS.modelMaskTexture;
 const SPINE_FIT_PADDING = 0.82;
@@ -123,6 +124,22 @@ const applyLive2DTransform = (instance, config) => {
   instance.scale.set(transform.scale);
   instance.x = transform.x;
   instance.y = transform.y;
+};
+
+const getLive2DModelSize = (instance) => ({
+  width: Math.max(instance?.internalModel?.width || instance?.internalModel?.originalWidth || instance?.width || 1, 1),
+  height: Math.max(instance?.internalModel?.height || instance?.internalModel?.originalHeight || instance?.height || 1, 1),
+});
+
+const applyOnLive2DTransform = (instance, config, canvasSize) => {
+  const { width, height } = getLive2DModelSize(instance);
+  const fitScale = Math.min((canvasSize * LIVE2D_ON_FIT_PADDING) / width, (canvasSize * LIVE2D_ON_FIT_PADDING) / height);
+  const userScale = (config.scale || DEFAULT_LIVE2D_SCALE) / DEFAULT_LIVE2D_SCALE;
+  const scale = fitScale * userScale;
+
+  instance.scale.set(scale);
+  instance.x = (canvasSize - width * scale) / 2 + (config.x || 0);
+  instance.y = (canvasSize - height * scale) / 2 + (config.y || 0);
 };
 
 const loadImageElement = (src) =>
@@ -326,7 +343,7 @@ const createLive2DInstance = async (config) => {
   if (config.customModelData || (config.modelSource === "local" && config.localModelData)) {
     data = JSON.parse(JSON.stringify(config.customModelData || config.localModelData));
   } else {
-    const modelUrl = getViewerModelApiBase(config.modelId, config.isModified);
+    const modelUrl = getViewerModelApiBase(config.modelId, config.isModified, config.modelProvider);
     const modelPath = `${modelUrl}buildData.asset`;
     const response = await fetch(modelPath);
     if (!response.ok) throw new Error("Fetch failed");
@@ -367,6 +384,7 @@ export const hasRenderableModelSource = (model) => {
 export const shouldReloadViewerModel = (instance, prevConfig, nextConfig) =>
   !instance ||
   prevConfig?.modelType !== nextConfig.modelType ||
+  prevConfig?.modelProvider !== nextConfig.modelProvider ||
   prevConfig?.modelSource !== nextConfig.modelSource ||
   prevConfig?.modelId !== nextConfig.modelId ||
   prevConfig?.isModified !== nextConfig.isModified ||
@@ -389,6 +407,11 @@ export const applyViewerModelTransform = (instance, config, canvasSize) => {
 
   if (config.modelType === MODEL_TYPES.SPINE) {
     applySpineTransform(instance, config, canvasSize);
+    return;
+  }
+
+  if (config.modelProvider === MODEL_PROVIDERS.ON) {
+    applyOnLive2DTransform(instance, config, canvasSize);
     return;
   }
 

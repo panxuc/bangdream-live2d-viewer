@@ -1,18 +1,31 @@
 "use client";
 
-import { FolderOpen, Sparkles, Spline, Wifi } from "lucide-react";
-import { getSourceOptionKey, MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
+import { Bone, FolderOpen, Music, Star, UserRound, Wifi } from "lucide-react";
+import { getSourceOptionKey, MODEL_PROVIDERS, MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
+
+const PROVIDER_OPTIONS = [
+  {
+    key: MODEL_PROVIDERS.GBP,
+    label: "Girls Band Party",
+    icon: Star,
+  },
+  {
+    key: MODEL_PROVIDERS.ON,
+    label: "Our Notes",
+    icon: Music,
+  },
+];
 
 const TYPE_OPTIONS = [
   {
     key: MODEL_TYPES.LIVE2D,
     label: "Live2D",
-    icon: Sparkles,
+    icon: UserRound,
   },
   {
     key: MODEL_TYPES.SPINE,
     label: "Spine",
-    icon: Spline,
+    icon: Bone,
   },
 ];
 
@@ -46,7 +59,7 @@ const SegmentedRow = ({ label, options, activeKey, isBatching, onChange }) => (
           <button
             key={option.key}
             type="button"
-            onClick={() => !isBatching && onChange(option.key)}
+            onClick={() => !isBatching && activeKey !== option.key && onChange(option.key)}
             disabled={isBatching}
             className={buttonClassName(activeKey === option.key, isBatching)}
           >
@@ -61,7 +74,16 @@ const SegmentedRow = ({ label, options, activeKey, isBatching, onChange }) => (
   </div>
 );
 
-export function ModelSourceSection({ modelType, modelSource, isBatching, handleModelSourceChange }) {
+export function ModelSourceSection({
+  modelProvider,
+  modelType,
+  modelSource,
+  isBatching,
+  handleModelProviderChange,
+  handleModelSourceChange,
+}) {
+  const activeProvider = modelProvider || MODEL_PROVIDERS.GBP;
+
   const handleTypeChange = (nextModelType) => {
     handleModelSourceChange(getSourceOptionKey(nextModelType, modelSource));
   };
@@ -74,19 +96,30 @@ export function ModelSourceSection({ modelType, modelSource, isBatching, handleM
     <div className="control-group">
       <div className="space-y-4">
         <SegmentedRow
-          label="模型类型"
-          options={TYPE_OPTIONS}
-          activeKey={modelType}
+          label="作品来源"
+          options={PROVIDER_OPTIONS}
+          activeKey={activeProvider}
           isBatching={isBatching}
-          onChange={handleTypeChange}
+          onChange={handleModelProviderChange}
         />
-        <SegmentedRow
-          label="资源来源"
-          options={SOURCE_OPTIONS}
-          activeKey={modelSource}
-          isBatching={isBatching}
-          onChange={handleSourceChange}
-        />
+        {activeProvider === MODEL_PROVIDERS.GBP ? (
+          <>
+            <SegmentedRow
+              label="模型类型"
+              options={TYPE_OPTIONS}
+              activeKey={modelType}
+              isBatching={isBatching}
+              onChange={handleTypeChange}
+            />
+            <SegmentedRow
+              label="资源来源"
+              options={SOURCE_OPTIONS}
+              activeKey={modelSource}
+              isBatching={isBatching}
+              onChange={handleSourceChange}
+            />
+          </>
+        ) : null}
       </div>
     </div>
   );
