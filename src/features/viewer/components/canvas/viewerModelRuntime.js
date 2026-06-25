@@ -3,7 +3,7 @@
 import * as PIXI from "pixi.js";
 import { TextureAtlas } from "pixi-spine";
 import { PUBLIC_ASSET_PATHS, getViewerModelApiBase, getViewerSpineApiBase } from "@/src/config/urls";
-import { toSpineControlModelData } from "@/src/features/viewer/lib/modelData";
+import { toControlModelData, toSpineControlModelData } from "@/src/features/viewer/lib/modelData";
 import { MODEL_PROVIDERS, MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
 import { detectSpineBinaryVersion, normalizeSpineVersionKey } from "@/src/features/viewer/lib/spineVersion";
 import { loadPublicScript } from "@/src/lib/loadPublicScript";
@@ -30,6 +30,265 @@ const safeRun = (fn) => {
   } catch {
     // Keep the viewer alive even if a model runtime throws.
   }
+};
+
+const toFiniteNumber = (value, fallback = 0) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : fallback;
+};
+
+const normalizeParameterId = (id, index) => {
+  if (typeof id === "string" || typeof id === "number") {
+    const value = String(id);
+    return value || null;
+  }
+
+  if (id && typeof id === "object") {
+    for (const key of ["id", "_id", "name", "_name", "value"]) {
+      if (typeof id[key] === "string" || typeof id[key] === "number") {
+        const value = String(id[key]);
+        if (value) return value;
+      }
+    }
+
+    if (typeof id.toString === "function" && id.toString !== Object.prototype.toString) {
+      const value = id.toString();
+      if (value && value !== "[object Object]") return value;
+    }
+  }
+
+  return typeof index === "number" ? `PARAM_${index}` : null;
+};
+
+const createLive2DParameterDefinition = ({ id, index, value, defaultValue, min, max }) => {
+  const parameterId = normalizeParameterId(id, index);
+  if (!parameterId) return null;
+
+  const currentValue = toFiniteNumber(value, 0);
+  let minimumValue = toFiniteNumber(min, currentValue - 1);
+  let maximumValue = toFiniteNumber(max, currentValue + 1);
+  const fallbackDefault = Number.isFinite(defaultValue) ? defaultValue : currentValue;
+
+  if (minimumValue === maximumValue) {
+    minimumValue = fallbackDefault - 1;
+    maximumValue = fallbackDefault + 1;
+  }
+
+  if (minimumValue > maximumValue) {
+    [minimumValue, maximumValue] = [maximumValue, minimumValue];
+  }
+
+  const range = Math.abs(maximumValue - minimumValue);
+  const step = range <= 2 ? 0.01 : 0.1;
+
+  return {
+    id: parameterId,
+    index,
+    min: minimumValue,
+    max: maximumValue,
+    defaultValue: toFiniteNumber(fallbackDefault, currentValue),
+    value: currentValue,
+    step,
+  };
+};
+
+const extractCubism4ParameterDefinitions = (coreModel) => {
+  const parameters = coreModel?.getModel?.()?.parameters;
+  if (!parameters) return [];
+
+  const count = Number(parameters.count) || parameters.ids?.length || 0;
+  return Array.from({ length: count }, (_, index) =>
+    createLive2DParameterDefinition({
+      id: parameters.ids?.[index],
+      index,
+      value: parameters.values?.[index],
+      defaultValue: parameters.defaultValues?.[index],
+      min: parameters.minimumValues?.[index],
+      max: parameters.maximumValues?.[index],
+    }),
+  ).filter(Boolean);
+};
+
+const extractCubism2ParameterDefinitions = (coreModel) => {
+  const modelContext = coreModel?.getModelContext?.();
+  const ids = modelContext?._$pb;
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+
+  const count = Number(modelContext._$qo) || ids.length;
+  return ids
+    .slice(0, count)
+    .map((id, index) =>
+      createLive2DParameterDefinition({
+        id,
+        index,
+        value: modelContext._$_2?.[index] ?? coreModel.getParamFloat?.(index),
+        defaultValue: modelContext._$vr?.[index] ?? modelContext._$fs?.[index],
+        min: modelContext._$Rr?.[index] ?? modelContext.getParamMin?.(index),
+        max: modelContext._$Or?.[index] ?? modelContext.getParamMax?.(index),
+      }),
+    )
+    .filter(Boolean);
+};
+
+const extractLive2DParameterDefinitions = (instance) => {
+  const coreModel = instance?.internalModel?.coreModel;
+  const parameters = [
+    ...extractCubism4ParameterDefinitions(coreModel),
+    ...extractCubism2ParameterDefinitions(coreModel),
+  ];
+  const seen = new Set();
+  const definitions = parameters.filter((parameter) => {
+    if (seen.has(parameter.id)) return false;
+    seen.add(parameter.id);
+    return true;
+  });
+
+  instance.__viewerParameterDefinitions = definitions;
+  instance.__viewerParameterIndexById = new Map(definitions.map((parameter) => [parameter.id, parameter.index]));
+  instance.__viewerParameterDefaultById = new Map(
+    definitions.map((parameter) => [parameter.id, parameter.defaultValue]),
+  );
+  instance.__viewerLastParameterValues = getLive2DParameterValueSnapshot(instance);
+
+  return definitions;
+};
+
+const readFiniteLive2DParameterValue = (readValue) => {
+  try {
+    const value = Number(readValue());
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const readLive2DParameterValue = (coreModel, parameter) => {
+  if (!coreModel || !parameter) return null;
+
+  const { id, index } = parameter;
+  const hasIndex = Number.isInteger(index);
+  const reads = [];
+
+  if (hasIndex && typeof coreModel.getParameterValueByIndex === "function") {
+    reads.push(() => coreModel.getParameterValueByIndex(index));
+  }
+
+  if (id && typeof coreModel.getParameterValueById === "function") {
+    reads.push(() => coreModel.getParameterValueById(id));
+  }
+
+  if (hasIndex) {
+    reads.push(() => coreModel.getModel?.()?.parameters?.values?.[index]);
+    reads.push(() => coreModel.getModelContext?.()?._$_2?.[index]);
+  }
+
+  if (hasIndex && typeof coreModel.getParamFloat === "function") {
+    reads.push(() => coreModel.getParamFloat(index));
+  }
+
+  if (id && typeof coreModel.getParamFloat === "function") {
+    reads.push(() => coreModel.getParamFloat(id));
+  }
+
+  for (const read of reads) {
+    const value = readFiniteLive2DParameterValue(read);
+    if (value !== null) return value;
+  }
+
+  return null;
+};
+
+const getLive2DParameterValueSnapshot = (instance) => {
+  const definitions = instance?.__viewerParameterDefinitions;
+  const coreModel = instance?.internalModel?.coreModel;
+  if (!Array.isArray(definitions) || definitions.length === 0 || !coreModel) return {};
+
+  return Object.fromEntries(
+    definitions.map((parameter) => [
+      parameter.id,
+      readLive2DParameterValue(coreModel, parameter) ?? parameter.defaultValue ?? parameter.value ?? 0,
+    ]),
+  );
+};
+
+const setLive2DParameterValue = (instance, parameterId, value) => {
+  const coreModel = instance?.internalModel?.coreModel;
+  if (!coreModel || !parameterId) return;
+
+  const index = instance.__viewerParameterIndexById?.get(parameterId);
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return;
+
+  if (typeof coreModel.setParameterValueByIndex === "function" && Number.isInteger(index)) {
+    coreModel.setParameterValueByIndex(index, numericValue, 1);
+    return;
+  }
+
+  if (typeof coreModel.setParameterValueById === "function") {
+    coreModel.setParameterValueById(parameterId, numericValue, 1);
+    return;
+  }
+
+  if (typeof coreModel.setParamFloat === "function") {
+    coreModel.setParamFloat(Number.isInteger(index) ? index : parameterId, numericValue, 1);
+  }
+};
+
+const applyLive2DParameterOverrides = (instance) => {
+  const overrides = instance?.__viewerParameterOverrides;
+  if (!overrides || typeof overrides !== "object") return;
+
+  Object.entries(overrides).forEach(([parameterId, value]) => {
+    setLive2DParameterValue(instance, parameterId, value);
+  });
+};
+
+const installLive2DParameterOverrideHook = (instance) => {
+  if (!instance?.internalModel || instance.__viewerParameterOverrideHandler) return;
+
+  const handler = () => {
+    applyLive2DParameterOverrides(instance);
+    instance.__viewerLastParameterValues = getLive2DParameterValueSnapshot(instance);
+  };
+  instance.__viewerParameterOverrideHandler = handler;
+
+  if (typeof instance.internalModel.on === "function") {
+    instance.internalModel.on("beforeModelUpdate", handler);
+  }
+};
+
+const removeLive2DParameterOverrideHook = (instance) => {
+  const handler = instance?.__viewerParameterOverrideHandler;
+  if (!handler) return;
+
+  if (typeof instance.internalModel?.off === "function") {
+    instance.internalModel.off("beforeModelUpdate", handler);
+  } else if (typeof instance.internalModel?.removeListener === "function") {
+    instance.internalModel.removeListener("beforeModelUpdate", handler);
+  }
+
+  instance.__viewerParameterOverrideHandler = null;
+};
+
+const setLive2DParameterOverrides = (instance, nextOverrides = {}) => {
+  if (!instance || instance.__viewerType !== MODEL_TYPES.LIVE2D) return;
+
+  const previousOverrides = instance.__viewerParameterOverrides || {};
+  const normalizedOverrides = Object.fromEntries(
+    Object.entries(nextOverrides || {}).filter(([, value]) => Number.isFinite(Number(value))),
+  );
+
+  Object.keys(previousOverrides).forEach((parameterId) => {
+    if (Object.prototype.hasOwnProperty.call(normalizedOverrides, parameterId)) return;
+    const defaultValue = instance.__viewerParameterDefaultById?.get(parameterId);
+    if (Number.isFinite(defaultValue)) {
+      setLive2DParameterValue(instance, parameterId, defaultValue);
+    }
+  });
+
+  instance.__viewerParameterOverrides = normalizedOverrides;
+  applyLive2DParameterOverrides(instance);
+  instance.__viewerLastParameterValues = getLive2DParameterValueSnapshot(instance);
 };
 
 const getSpineRuntimeModule = async (versionKey) => {
@@ -360,10 +619,15 @@ const createLive2DInstance = async (config) => {
   });
   disableLive2DBreathing(instance);
   instance.__viewerType = MODEL_TYPES.LIVE2D;
+  const parameterDefinitions = extractLive2DParameterDefinitions(instance);
+  installLive2DParameterOverrideHook(instance);
 
   return {
     instance,
-    controlData: null,
+    controlData: {
+      ...toControlModelData(data),
+      parameters: parameterDefinitions,
+    },
     rawData: data,
   };
 };
@@ -402,6 +666,13 @@ export const loadViewerModelInstance = async (config, canvasSize) => {
   return createLive2DInstance(config);
 };
 
+export const getViewerModelLive2DParameterValues = (instance) => {
+  if (!instance || instance.__viewerType !== MODEL_TYPES.LIVE2D) return null;
+
+  const snapshot = instance.__viewerLastParameterValues || getLive2DParameterValueSnapshot(instance);
+  return snapshot && Object.keys(snapshot).length > 0 ? { ...snapshot } : null;
+};
+
 export const applyViewerModelTransform = (instance, config, canvasSize) => {
   if (!instance) return;
 
@@ -420,6 +691,10 @@ export const applyViewerModelTransform = (instance, config, canvasSize) => {
 
 export const applyViewerModelState = (instance, currentConfig, prevConfig) => {
   if (!instance) return;
+
+  if (currentConfig.modelType === MODEL_TYPES.LIVE2D) {
+    setLive2DParameterOverrides(instance, currentConfig.live2dParameterValues);
+  }
 
   const motionChanged =
     currentConfig.motion !== prevConfig?.motion ||
@@ -475,6 +750,8 @@ export const resetViewerModel = (instance) => {
 
 export const removeViewerModelInstance = (app, instance) => {
   if (!instance || !app) return;
+
+  removeLive2DParameterOverrideHook(instance);
 
   safeRun(() => {
     app.stage.removeChild(instance);

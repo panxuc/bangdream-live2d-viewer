@@ -34,6 +34,57 @@ const nextModelRequestId = (requestMapRef, modelId) => {
 };
 
 const isCurrentModelRequest = (requestMapRef, modelId, requestId) => requestMapRef.current.get(modelId) === requestId;
+const PARAMETER_VALUE_EPSILON = 0.0005;
+const EMPTY_PARAMETER_VALUES = {};
+
+const toFiniteParameterValue = (value, fallback = 0) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : fallback;
+};
+
+const normalizeParameterValues = (values = {}) =>
+  Object.fromEntries(
+    Object.entries(values)
+      .map(([key, value]) => [key, Number(value)])
+      .filter(([key, value]) => key && Number.isFinite(value)),
+  );
+
+const buildInitialLive2DParameterValues = (parameters = []) =>
+  Object.fromEntries(
+    parameters
+      .filter((parameter) => parameter?.id)
+      .map((parameter) => [
+        parameter.id,
+        toFiniteParameterValue(parameter.value, toFiniteParameterValue(parameter.defaultValue, 0)),
+      ]),
+  );
+
+const haveParameterValuesChanged = (previous = {}, next = {}) => {
+  const previousKeys = Object.keys(previous);
+  const nextKeys = Object.keys(next);
+  if (previousKeys.length !== nextKeys.length) return true;
+
+  return nextKeys.some(
+    (key) =>
+      !Object.prototype.hasOwnProperty.call(previous, key) ||
+      Math.abs(toFiniteParameterValue(previous[key]) - toFiniteParameterValue(next[key])) > PARAMETER_VALUE_EPSILON,
+  );
+};
+
+const updateParameterRuntimeValues = (previous, modelId, values) => {
+  if (!modelId) return previous;
+
+  const nextValues = normalizeParameterValues(values);
+  if (Object.keys(nextValues).length === 0) {
+    if (!Object.prototype.hasOwnProperty.call(previous, modelId)) return previous;
+    const next = { ...previous };
+    delete next[modelId];
+    return next;
+  }
+
+  if (!haveParameterValuesChanged(previous[modelId] || {}, nextValues)) return previous;
+  return { ...previous, [modelId]: nextValues };
+};
 
 export function useViewerPageState() {
   const {
@@ -55,6 +106,7 @@ export function useViewerPageState() {
   const [isBatching, setIsBatching] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
   const [isUploadingLocalModel, setIsUploadingLocalModel] = useState(false);
+  const [live2dParameterRuntimeValues, setLive2DParameterRuntimeValues] = useState({});
   const canvasRef = useRef(null);
   const reloadPendingRef = useRef(false);
   const reloadTimeoutRef = useRef(null);
@@ -95,6 +147,16 @@ export function useViewerPageState() {
     (modelId, isModified, modelProvider) => fetchRemoteBuildDataAsset(modelId, isModified, modelProvider),
     [],
   );
+  const clearLive2DParameterRuntimeValues = useCallback((modelId) => {
+    if (!modelId) return;
+
+    setLive2DParameterRuntimeValues((previous) => {
+      if (!Object.prototype.hasOwnProperty.call(previous, modelId)) return previous;
+      const next = { ...previous };
+      delete next[modelId];
+      return next;
+    });
+  }, []);
 
   const handleAddModel = useCallback(() => {
     if (models.length >= MAX_MODELS) return;
@@ -119,6 +181,7 @@ export function useViewerPageState() {
         customModelData: deepCloneValue(sourceModel.customModelData),
         localModelData: deepCloneValue(sourceModel.localModelData),
         localModelCandidates: deepCloneValue(sourceModel.localModelCandidates),
+        live2dParameterValues: deepCloneValue(sourceModel.live2dParameterValues || {}),
       };
 
       insertModelAfter(idToDuplicate, duplicatedModel);
@@ -139,9 +202,10 @@ export function useViewerPageState() {
       overrideRequestsRef.current.delete(idToRemove);
       localArchiveUploadRequestsRef.current.delete(idToRemove);
       localModelApplyRequestsRef.current.delete(idToRemove);
+      clearLive2DParameterRuntimeValues(idToRemove);
       removeModel(idToRemove);
     },
-    [models.length, removeModel],
+    [clearLive2DParameterRuntimeValues, models.length, removeModel],
   );
 
   const handleMoveModel = useCallback(
@@ -273,17 +337,25 @@ export function useViewerPageState() {
     (modelId, payload) => {
       const controlData = payload?.controlData || toControlModelData(payload);
       updateModelById(modelId, { modelData: controlData, localModelError: null });
+      setLive2DParameterRuntimeValues((previous) =>
+        updateParameterRuntimeValues(
+          previous,
+          modelId,
+          buildInitialLive2DParameterValues(controlData?.parameters || []),
+        ),
+      );
     },
     [updateModelById],
   );
 
   const handleModelError = useCallback(
     (modelId, error) => {
+      clearLive2DParameterRuntimeValues(modelId);
       updateModelById(modelId, {
         localModelError: error instanceof Error ? error.message : "模型加载失败",
       });
     },
-    [updateModelById],
+    [clearLive2DParameterRuntimeValues, updateModelById],
   );
 
   const handleMotionSelect = useCallback(
@@ -508,6 +580,7 @@ export function useViewerPageState() {
   const handleModelReload = useCallback(() => {
     reloadPendingRef.current = true;
     setIsReloading(true);
+    setLive2DParameterRuntimeValues({});
 
     if (reloadTimeoutRef.current) {
       clearTimeout(reloadTimeoutRef.current);
@@ -523,6 +596,7 @@ export function useViewerPageState() {
       ...model,
       motion: null,
       expression: null,
+      live2dParameterValues: {},
       reloadKey: (model.reloadKey || 0) + 1,
     }));
   }, [mapModels]);
@@ -546,6 +620,78 @@ export function useViewerPageState() {
     [updateActiveModel],
   );
 
+  const handleLive2DParameterSnapshot = useCallback((modelId, values) => {
+    setLive2DParameterRuntimeValues((previous) => {
+      if (!modelsRef.current.some((model) => model.id === modelId)) return previous;
+      return updateParameterRuntimeValues(previous, modelId, values);
+    });
+  }, []);
+
+  const handleLive2DParameterChange = useCallback(
+    (parameterId, value) => {
+      if (!parameterId) return;
+      const nextValue = Number(value);
+      if (!Number.isFinite(nextValue)) return;
+      const parameter = getModelById(activeModelId)?.modelData?.parameters?.find((item) => item.id === parameterId);
+      if (!parameter) return;
+
+      updateModelById(activeModelId, (model) => {
+        const nextValues = { ...(model.live2dParameterValues || {}) };
+        const defaultValue = Number.isFinite(parameter.defaultValue) ? parameter.defaultValue : 0;
+        if (Math.abs(nextValue - defaultValue) < 0.000001) {
+          delete nextValues[parameterId];
+        } else {
+          nextValues[parameterId] = nextValue;
+        }
+
+        return { live2dParameterValues: nextValues };
+      });
+
+      setLive2DParameterRuntimeValues((previous) =>
+        updateParameterRuntimeValues(previous, activeModelId, {
+          ...(previous[activeModelId] || {}),
+          [parameterId]: nextValue,
+        }),
+      );
+    },
+    [activeModelId, getModelById, updateModelById],
+  );
+
+  const handleLive2DParameterReset = useCallback(
+    (parameterId) => {
+      if (!parameterId) return;
+      const parameter = getModelById(activeModelId)?.modelData?.parameters?.find((item) => item.id === parameterId);
+
+      updateModelById(activeModelId, (model) => {
+        if (!Object.prototype.hasOwnProperty.call(model.live2dParameterValues || {}, parameterId)) return null;
+        const nextValues = { ...model.live2dParameterValues };
+        delete nextValues[parameterId];
+        return { live2dParameterValues: nextValues };
+      });
+
+      if (parameter) {
+        setLive2DParameterRuntimeValues((previous) =>
+          updateParameterRuntimeValues(previous, activeModelId, {
+            ...(previous[activeModelId] || {}),
+            [parameterId]: toFiniteParameterValue(
+              parameter.defaultValue,
+              toFiniteParameterValue(parameter.value, 0),
+            ),
+          }),
+        );
+      }
+    },
+    [activeModelId, getModelById, updateModelById],
+  );
+
+  const handleLive2DParameterResetAll = useCallback(() => {
+    const nextValues = buildInitialLive2DParameterValues(activeModel?.modelData?.parameters || []);
+    updateActiveModel({ live2dParameterValues: {} });
+    setLive2DParameterRuntimeValues((previous) =>
+      updateParameterRuntimeValues(previous, activeModelId, nextValues),
+    );
+  }, [activeModel?.modelData?.parameters, activeModelId, updateActiveModel]);
+
   const handleModifiedChange = useCallback(
     (checked) => {
       updateActiveModel({
@@ -557,6 +703,7 @@ export function useViewerPageState() {
         modelData: null,
         motion: null,
         expression: null,
+        live2dParameterValues: {},
         borrowedModelId: null,
         borrowedCharId: null,
         isBorrowingMotion: false,
@@ -619,6 +766,7 @@ export function useViewerPageState() {
           modelData: null,
           motion: null,
           expression: null,
+          live2dParameterValues: {},
           borrowedModelId: null,
           borrowedCharId: null,
           isBorrowingMotion: false,
@@ -705,6 +853,7 @@ export function useViewerPageState() {
           modelData: toControlModelData(result.localModelData),
           motion: null,
           expression: null,
+          live2dParameterValues: {},
           borrowedModelId: null,
           borrowedCharId: null,
           isBorrowingMotion: false,
@@ -724,6 +873,8 @@ export function useViewerPageState() {
     },
     [activeModelId, getModelById, updateModelById],
   );
+
+  const activeLive2DParameterValues = live2dParameterRuntimeValues[activeModelId] || EMPTY_PARAMETER_VALUES;
 
   return {
     models,
@@ -768,6 +919,12 @@ export function useViewerPageState() {
     handleModelReload,
     handleCanvasSyncComplete,
     handleTransformChange,
+    handleLive2DParameterSnapshot,
+    live2dParameterRuntimeValues,
+    activeLive2DParameterValues,
+    handleLive2DParameterChange,
+    handleLive2DParameterReset,
+    handleLive2DParameterResetAll,
     handleModifiedChange,
     handleHeadlessChange,
     handleBodylessChange,

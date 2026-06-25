@@ -1,3 +1,4 @@
+import { convertLive2DExpressionAssetJson, isLive2DExpressionAssetPath } from "@/src/lib/live2dExpressionAsset";
 import { fetchBangDreamR2Object } from "@/src/server/r2/bangdream-r2";
 import { getOnLive2DModelDescriptor } from "./model-descriptor-cache";
 import { getOnLive2DAssetKey } from "./remote";
@@ -31,6 +32,20 @@ export async function createOnLive2DAssetResponse({ model, path = [] }) {
   }
 
   const contentType = response.headers.get("content-type");
+
+  if (isLive2DExpressionAssetPath(filePath)) {
+    const expressionAssetJson = await response.json();
+
+    return {
+      ok: true,
+      isJson: true,
+      body: convertLive2DExpressionAssetJson(expressionAssetJson),
+      headers: {
+        "Cache-Control": "public, max-age=3600, s-maxage=86400",
+      },
+    };
+  }
+
   let buffer = await response.arrayBuffer();
 
   if (filePath.toLowerCase().endsWith(".mtn")) {

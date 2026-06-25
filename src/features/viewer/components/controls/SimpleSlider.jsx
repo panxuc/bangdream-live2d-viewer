@@ -5,9 +5,9 @@ import { RotateCcw } from "lucide-react";
 export function SimpleSlider({ value, min, max, step, onChange, label, disabled, defaultValue }) {
   return (
     <div className={`space-y-2 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span className="font-bold uppercase">{label}</span>
-        <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center justify-between gap-2 text-xs text-gray-500">
+        <span className="min-w-0 truncate pr-1 font-bold uppercase" title={label}>{label}</span>
+        <div className="flex shrink-0 items-center gap-2">
           <input
             type="number"
             min={min}

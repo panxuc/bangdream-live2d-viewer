@@ -1,4 +1,5 @@
 import { readBangDreamR2Json } from "@/src/server/r2/bangdream-r2";
+import { toLive2DExpressionAssetPath } from "@/src/lib/live2dExpressionAsset";
 import {
   decodeOnLive2DModelId,
   getBaseName,
@@ -85,10 +86,14 @@ const rewriteExpressions = (expressions, modelJsonRelativePath) => {
     if (!expression || typeof expression !== "object") return expression;
     const rewrittenExpression = { ...expression };
     if (typeof rewrittenExpression.File === "string") {
-      rewrittenExpression.File = resolveFromModelJsonDirectory(modelJsonRelativePath, rewrittenExpression.File);
+      rewrittenExpression.File = toLive2DExpressionAssetPath(
+        resolveFromModelJsonDirectory(modelJsonRelativePath, rewrittenExpression.File),
+      );
     }
     if (typeof rewrittenExpression.file === "string") {
-      rewrittenExpression.file = resolveFromModelJsonDirectory(modelJsonRelativePath, rewrittenExpression.file);
+      rewrittenExpression.file = toLive2DExpressionAssetPath(
+        resolveFromModelJsonDirectory(modelJsonRelativePath, rewrittenExpression.file),
+      );
     }
     return rewrittenExpression;
   });

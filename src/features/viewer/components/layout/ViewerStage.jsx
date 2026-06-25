@@ -2,7 +2,15 @@
 
 import { ViewerCanvas } from "@/src/features/viewer/components/canvas";
 
-export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, onModelError, onSyncComplete }) {
+export function ViewerStage({
+  models,
+  canvasRef,
+  backgroundColor,
+  onModelLoad,
+  onModelError,
+  onSyncComplete,
+  onLive2DParameterSnapshot,
+}) {
   const activeCount = models.filter((model) => {
     if (model.modelSource === "local") {
       return !!model.localModelData;
@@ -31,6 +39,7 @@ export function ViewerStage({ models, canvasRef, backgroundColor, onModelLoad, o
               onModelLoad={onModelLoad}
               onModelError={onModelError}
               onSyncComplete={onSyncComplete}
+              onLive2DParameterSnapshot={onLive2DParameterSnapshot}
               backgroundColor={backgroundColor}
             />
             {!activeCount && (

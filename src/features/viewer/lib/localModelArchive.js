@@ -2,6 +2,12 @@ import JSZip from "jszip";
 import { EXTERNAL_URLS, PUBLIC_ASSET_PATHS } from "@/src/config/urls";
 import { MODEL_TYPES } from "@/src/features/viewer/lib/modelState";
 import { collectSpineCandidateEntries, findSpineAtlasEntry, isSpineBinaryPath } from "@/src/features/viewer/lib/spineArchiveUtils";
+import {
+  convertLive2DExpressionAssetJson,
+  isLive2DExpressionAssetPath,
+  isLive2DExpressionJsonPath,
+  toLive2DExpressionAssetPath,
+} from "@/src/lib/live2dExpressionAsset";
 import { loadPublicScript } from "@/src/lib/loadPublicScript";
 
 const LIVE2D_MODEL_FILE_PATTERNS = ["model.json", "builddata.asset", ".model3.json"];
@@ -62,6 +68,7 @@ const uint8ArrayToBase64 = (bytes) => {
 };
 
 const toDataUrl = (bytes, mimeType) => `data:${mimeType};base64,${uint8ArrayToBase64(bytes)}`;
+const toJsonDataUrl = (value) => toDataUrl(new TextEncoder().encode(JSON.stringify(value)), "application/json");
 
 const decodeZipFileName = (bytes) => {
   try {
@@ -553,6 +560,30 @@ export const buildLocalModelFromArchive = async ({
     return toDataUrl(content, getMimeType(normalized));
   };
 
+  const toExpressionBlobUrl = async (relativePath, currentDir) => {
+    if (!relativePath || typeof relativePath !== "string" || isExternalUrl(relativePath)) {
+      return relativePath;
+    }
+
+    const normalized = joinAndNormalizePath(currentDir, relativePath);
+    const assetPath = isLive2DExpressionAssetPath(normalized)
+      ? normalized
+      : isLive2DExpressionJsonPath(normalized)
+        ? toLive2DExpressionAssetPath(normalized)
+        : null;
+
+    if (assetPath) {
+      const assetContent = loadArchiveFileContent(archive, assetPath);
+      const assetJson = assetContent ? parseJsonBytes(assetContent) : null;
+
+      if (assetJson) {
+        return toJsonDataUrl(convertLive2DExpressionAssetJson(assetJson));
+      }
+    }
+
+    return toBlobUrl(relativePath, currentDir);
+  };
+
   const rewriteMotionGroups = async (motions, currentDir) => {
     if (!isObject(motions)) return motions;
 
@@ -585,10 +616,10 @@ export const buildLocalModelFromArchive = async ({
         if (!isObject(item)) return item;
         const nextItem = { ...item };
         if (typeof nextItem.file === "string") {
-          nextItem.file = await toBlobUrl(nextItem.file, currentDir);
+          nextItem.file = await toExpressionBlobUrl(nextItem.file, currentDir);
         }
         if (typeof nextItem.File === "string") {
-          nextItem.File = await toBlobUrl(nextItem.File, currentDir);
+          nextItem.File = await toExpressionBlobUrl(nextItem.File, currentDir);
         }
         return nextItem;
       }),

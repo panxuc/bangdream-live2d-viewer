@@ -14,6 +14,7 @@ export default function Home() {
     onModelLoad: state.handleModelLoad,
     onModelError: state.handleModelError,
     onSyncComplete: state.handleCanvasSyncComplete,
+    onLive2DParameterSnapshot: state.handleLive2DParameterSnapshot,
   };
   const controlsPanelProps = {
     models: state.models,
@@ -59,10 +60,15 @@ export default function Home() {
   };
   const exportPanelProps = {
     activeModel: state.activeModel,
+    isBatching: state.isBatching,
+    live2dParameterValues: state.activeLive2DParameterValues,
     canvasRef: state.canvasRef,
     backgroundColor: state.backgroundColor,
     setBackgroundColor: state.setBackgroundColor,
     handleModelReload: state.handleModelReload,
+    handleLive2DParameterChange: state.handleLive2DParameterChange,
+    handleLive2DParameterReset: state.handleLive2DParameterReset,
+    handleLive2DParameterResetAll: state.handleLive2DParameterResetAll,
     setIsBatching: state.setIsBatching,
   };
 

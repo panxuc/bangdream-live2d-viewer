@@ -7,6 +7,7 @@ import { getBackgroundCanvasStyle } from "@/src/features/viewer/lib/backgroundSt
 import {
   applyViewerModelState,
   applyViewerModelTransform,
+  getViewerModelLive2DParameterValues,
   hasRenderableModelSource,
   loadViewerModelInstance,
   playViewerMotion,
@@ -25,6 +26,8 @@ const STABILITY_PIXEL_DIFF_TOLERANCE = 10;
 const STABILITY_SCREEN_CHANGE_TOLERANCE = 0.001;
 const STABILITY_WARMUP_MS = 500;
 const STABILITY_TIMEOUT_MS = 20000;
+const PARAMETER_SNAPSHOT_INTERVAL_MS = 120;
+const PARAMETER_VALUE_EPSILON = 0.0005;
 
 const resumeAudioContexts = async () => {
   if (typeof window === "undefined") return;
@@ -155,12 +158,27 @@ const waitCanvasStable = async (app, signal) =>
     app.ticker?.add(checkHandler);
   });
 
+const hasParameterSnapshotChanged = (previous, next) => {
+  if (!previous) return true;
+
+  const previousKeys = Object.keys(previous);
+  const nextKeys = Object.keys(next);
+  if (previousKeys.length !== nextKeys.length) return true;
+
+  return nextKeys.some(
+    (key) =>
+      !Object.prototype.hasOwnProperty.call(previous, key) ||
+      Math.abs((Number(previous[key]) || 0) - (Number(next[key]) || 0)) > PARAMETER_VALUE_EPSILON,
+  );
+};
+
 const ViewerCanvas = forwardRef(function ViewerCanvas(
   {
     models = [],
     onModelLoad,
     onModelError,
     onSyncComplete,
+    onLive2DParameterSnapshot,
     backgroundColor = "transparent",
   },
   ref,
@@ -168,6 +186,7 @@ const ViewerCanvas = forwardRef(function ViewerCanvas(
   const canvasRef = useRef(null);
   const appRef = useRef(null);
   const modelInstancesRef = useRef({});
+  const parameterSnapshotsRef = useRef({});
   const prevModelsRef = useRef([]);
   const [appReady, setAppReady] = useState(false);
   const [loadingStates, setLoadingStates] = useState({});
@@ -252,6 +271,7 @@ const ViewerCanvas = forwardRef(function ViewerCanvas(
       }
       setAppReady(false);
       modelInstancesRef.current = {};
+      parameterSnapshotsRef.current = {};
       prevModelsRef.current = [];
     };
   }, []);
@@ -272,6 +292,7 @@ const ViewerCanvas = forwardRef(function ViewerCanvas(
         if (!currentIds.has(id)) {
           removeViewerModelInstance(appRef.current, modelInstancesRef.current[id]);
           delete modelInstancesRef.current[id];
+          delete parameterSnapshotsRef.current[id];
           setModelLoading(id, null);
         }
       });
@@ -287,6 +308,7 @@ const ViewerCanvas = forwardRef(function ViewerCanvas(
           if (instance) {
             removeViewerModelInstance(appRef.current, instance);
             delete modelInstancesRef.current[currentConfig.id];
+            delete parameterSnapshotsRef.current[currentConfig.id];
             setModelLoading(currentConfig.id, null);
           }
           continue;
@@ -299,6 +321,7 @@ const ViewerCanvas = forwardRef(function ViewerCanvas(
             if (instance) {
               removeViewerModelInstance(appRef.current, instance);
               delete modelInstancesRef.current[currentConfig.id];
+              delete parameterSnapshotsRef.current[currentConfig.id];
               instance = null;
             }
 
@@ -359,6 +382,28 @@ const ViewerCanvas = forwardRef(function ViewerCanvas(
       isCancelled = true;
     };
   }, [appReady, models, onModelError, onModelLoad, onSyncComplete]);
+
+  useEffect(() => {
+    if (!appReady || !onLive2DParameterSnapshot) return;
+
+    const timer = window.setInterval(() => {
+      models.forEach((model) => {
+        const instance = modelInstancesRef.current[model.id];
+        const values = getViewerModelLive2DParameterValues(instance);
+        if (!values) return;
+
+        const previous = parameterSnapshotsRef.current[model.id];
+        if (!hasParameterSnapshotChanged(previous, values)) return;
+
+        parameterSnapshotsRef.current[model.id] = values;
+        onLive2DParameterSnapshot(model.id, values);
+      });
+    }, PARAMETER_SNAPSHOT_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [appReady, models, onLive2DParameterSnapshot]);
 
   const hasLoading = Object.values(loadingStates).some((state) => state === "Loading...");
   const canvasBackgroundStyle = getBackgroundCanvasStyle(backgroundColor);

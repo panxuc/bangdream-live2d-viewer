@@ -9,3 +9,4 @@ export { RemoteSpineSection } from "./RemoteSpineSection";
 export { MotionSection } from "./MotionSection";
 export { ExpressionSection } from "./ExpressionSection";
 export { TransformSection } from "./TransformSection";
+export { Live2DParameterPanel } from "./Live2DParameterPanel";
