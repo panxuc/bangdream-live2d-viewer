@@ -21,7 +21,10 @@ export function Live2DParameterPanel({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const parameters = useMemo(
-    () => (Array.isArray(activeModel?.modelData?.parameters) ? activeModel.modelData.parameters : []),
+    () => {
+      const modelParameters = Array.isArray(activeModel?.modelData?.parameters) ? activeModel.modelData.parameters : [];
+      return [...modelParameters].sort((a, b) => String(a?.id || "").localeCompare(String(b?.id || "")));
+    },
     [activeModel?.modelData?.parameters],
   );
   const isLive2D = activeModel?.modelType === MODEL_TYPES.LIVE2D;
